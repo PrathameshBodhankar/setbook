@@ -6,12 +6,20 @@ Free workout tracker. Log sets, track history and weekly progress. Data stays on
 
 ## What it does
 
-- **Workout**: start a workout, add exercises from a list of over 70, including a Pilates section, and log weight and reps (or seconds) for each set. Can't find one? Type its name and add it as your own exercise. It's saved on your device and included in backups. Your numbers from last time show next to each set.
-- **History**: every finished workout with its date, total volume and sets. Delete any you don't want.
-- **Progress**: this week's workouts, volume and sets, plus a chart of the last 8 weeks.
-- **Profile**: name, bodyweight, height and goal. Export or import a backup of your data.
+- **Workout**: start an empty workout, repeat your last one, or start a saved routine. Add exercises from a list of over 70 (including a Pilates section) and log weight and reps, or seconds for holds. Last time's numbers show next to each set. Mark warm-up sets, reorder exercises, add notes, and change the date if you're logging after the fact.
+- **Your own exercises**: type a name that isn't listed and press Enter (or tap **+ Add**). It's saved on your device and included in backups. Tap **Suggest** next to it to propose it for everyone; that opens a pre-filled issue on this repo.
+- **Records**: tap any exercise to see every session, your heaviest set, estimated 1-rep max and best reps or hold. Workouts that beat a record get a **New PR** badge.
+- **History**: every finished workout with its date, volume, sets and notes. Edit, delete or save any workout as a routine.
+- **Progress**: workouts, volume and working sets for the last 1, 4, 8 or 12 weeks, compared with the period before, plus a chart and the exercises you trained.
+- **Profile**: name, units (kg or lb), bodyweight, height and goal. Export or import a backup of your data.
+
+Warm-up sets don't count toward volume or records.
 
 It also works as an installable app. On Android or desktop Chrome, choose **Install app**. On iPhone, open it in Safari and choose **Share → Add to Home Screen**. Once installed, it works offline.
+
+## Adding suggested exercises
+
+Suggestions arrive as issues titled "Exercise suggestion: …". To add one for everyone, add a `["Name","Section"]` line to the `EX` list near the top of the script in `index.html` (and the name to `TIMED` if it's logged in seconds), then commit.
 
 ## How your data is stored
 

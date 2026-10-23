@@ -127,6 +127,36 @@ dialog::backdrop{background:rgba(10,15,30,.45)}
   .sh,.set{grid-template-columns:24px 1fr 62px 54px 42px; gap:6px}
 }
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+.seg{display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 14px}
+.seg .btn{min-height:36px; font-size:15px; padding:0 12px}
+.seg .btn[aria-pressed="true"]{background:var(--ink); color:var(--paper)}
+.exhead{display:flex; align-items:center; justify-content:space-between; gap:4px 8px; flex-wrap:wrap}
+.exname,.linkish{font:inherit; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; text-align:left;
+  text-decoration:underline dotted; text-underline-offset:4px}
+.exname{font-family:Kalam,"Comic Sans MS",cursive; font-size:21px; line-height:28px; font-weight:700}
+.ctl{display:flex; gap:2px; flex-wrap:wrap}
+.ctl .btn{padding:0 8px}
+.setno{font:inherit; font-weight:700; color:var(--text); background:none; border:0; padding:0; cursor:pointer; min-height:40px; text-align:left}
+.set.warm .setno{color:var(--margin)}
+.set.warm input{color:var(--pencil)}
+.unit{font:inherit; font-size:14px; font-weight:700; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; text-align:left}
+textarea{font:inherit; color:var(--text); background:transparent; border:2px solid var(--line); border-radius:8px; width:100%; padding:4px 8px; min-height:64px; resize:vertical}
+textarea:focus{border-color:var(--ink)}
+.exnote{font-size:15px; margin:2px 0 0}
+.badge{display:inline-block; background:var(--hi); color:var(--text); font-size:13px; font-weight:700; border-radius:6px; padding:0 6px; line-height:22px; white-space:nowrap}
+.routine{display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--rule)}
+.routine .pick{flex:1; border:0}
+.lines{list-style:none; padding:0; margin:6px 0 10px}
+.lines li{margin:2px 0}
+.warmtxt{color:var(--pencil); font-style:italic}
+.wnote{color:var(--pencil); font-style:italic; margin:4px 0}
+.datein{max-width:190px}
+.addfirst{margin:4px 0 8px}
+.addfirst .btn{width:100%; text-align:left}
+.top3{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:6px 0 14px}
+.top3 b{display:block; font-family:Kalam,cursive; font-size:24px; line-height:36px; color:var(--ink)}
+.top3 span{font-size:15px; color:var(--pencil)}
+.hint{font-size:14px; line-height:22px; color:var(--pencil); margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -142,8 +172,12 @@ dialog::backdrop{background:rgba(10,15,30,.45)}
 </nav>
 <dialog id="picker" aria-labelledby="pickTitle">
   <div class="ph"><h2 id="pickTitle">Add exercise</h2><button class="btn ghost small" id="closePick">Close</button></div>
-  <input id="q" type="search" placeholder="Search or add an exercise" aria-label="Search exercises">
+  <input id="q" type="search" placeholder="Search or add an exercise" aria-label="Search or add an exercise" enterkeyhint="go" autocomplete="off">
   <div id="list"></div>
+</dialog>
+<dialog id="exdlg" aria-labelledby="exTitle">
+  <div class="ph"><h2 id="exTitle"></h2><button class="btn ghost small" id="closeEx">Close</button></div>
+  <div id="exBody"></div>
 </dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
@@ -170,23 +204,45 @@ const EX = [
 ];
 const MUSCLES = ["Chest","Shoulders","Back","Legs","Arms","Core","Pilates"];
 const TIMED = new Set(["Plank","Side Plank","Swimming","Leg Pull Front","Pilates Plank"]);
-const isTime = n => TIMED.has(n) || !!(state.custom||[]).find(c=>c.name===n && c.timed);
+const REPO = "https://github.com/PrathameshBodhankar/setbook";
+const TIMED_WORDS = /\b(plank|hold|hang|wall sit|isometric|static)\b/i;
+const customOf = n => state.custom.find(c=>c.name===n);
+const isTime = n => TIMED.has(n) || !!(customOf(n)||{}).timed;
+const RANGES = [1,4,8,12];
 
 /* ---------- storage: localStorage with in-memory fallback ---------- */
 const KEY = "setbook:v1";
 let memCopy = null;
-function load(){
-  let d = null;
-  try { const s = localStorage.getItem(KEY); if (s) d = JSON.parse(s); } catch(e){}
-  d = d || memCopy || {profile:null, history:[], active:null};
-  d.custom = cleanCustom(d.custom);
-  return d;
-}
+const isObj = x => !!x && typeof x==="object" && !Array.isArray(x);
 function cleanCustom(list){
   if (!Array.isArray(list)) return [];
   const seen = new Set();
-  return list.filter(c => c && typeof c.name==="string" && c.name.trim() && !seen.has(c.name.trim().toLowerCase()) && seen.add(c.name.trim().toLowerCase()))
-             .map(c => ({name:c.name.trim().slice(0,40), timed:!!c.timed}));
+  return list.filter(c => isObj(c) && typeof c.name==="string" && c.name.trim() && !seen.has(c.name.trim().toLowerCase()) && seen.add(c.name.trim().toLowerCase()))
+             .map(c => ({name:c.name.trim().replace(/\s+/g," ").slice(0,40), timed:!!c.timed}));
+}
+function cleanRoutines(list){
+  if (!Array.isArray(list)) return [];
+  return list.filter(r => isObj(r) && typeof r.name==="string" && Array.isArray(r.exercises))
+    .map(r => ({id:String(r.id ?? Date.now().toString(36)+Math.random().toString(36).slice(2,6)), name:r.name.slice(0,60) || "Routine",
+      exercises:r.exercises.filter(e=>isObj(e) && typeof e.name==="string").map(e=>({name:e.name, sets:Math.max(1, Math.min(20, +e.sets||3)), warm:Math.max(0, Math.min(10, +e.warm||0))}))}));
+}
+function normalize(d){
+  d = isObj(d) ? d : {};
+  d.profile = isObj(d.profile) ? d.profile : null;
+  if (d.profile && d.profile.unit!=="lb") d.profile.unit = "kg";
+  d.history = Array.isArray(d.history) ? d.history : [];
+  d.history.sort((a,b)=>b.start-a.start);
+  d.active = isObj(d.active) && typeof d.active.start==="number" && Array.isArray(d.active.exercises) ? d.active : null;
+  d.custom = cleanCustom(d.custom);
+  d.routines = cleanRoutines(d.routines);
+  d.ui = isObj(d.ui) ? d.ui : {};
+  if (!RANGES.includes(d.ui.range)) d.ui.range = 8;
+  return d;
+}
+function load(){
+  let d = null;
+  try { const s = localStorage.getItem(KEY); if (s) d = JSON.parse(s); } catch(e){}
+  return normalize(d || memCopy);
 }
 function save(){
   memCopy = state;
@@ -200,67 +256,136 @@ const view = $("#view");
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const plural = (n, w) => `${n} ${w}${n===1?"":"s"}`;
 const fmtDate = t => new Date(t).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
 const shortDate = t => new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short"});
-const vol = w => w.exercises.reduce((a,e)=>a+e.sets.reduce((b,s)=>b+((s.done!==false)?(+s.w||0)*(+s.r||0):0),0),0);
-const fmtKg = n => Math.round(n).toLocaleString()+" kg";
-function lastFor(name){
-  for (const w of state.history){ const e = w.exercises.find(x=>x.name===name); if (e && e.sets.length) return e.sets; }
+const ymd = t => { const d = new Date(t); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const newId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+/* units: weights are stored in kg; shown and typed in the profile's unit */
+const LB = 2.20462;
+const unit = () => (state.profile && state.profile.unit) || "kg";
+const toU = kg => { const v = unit()==="lb" ? kg*LB : kg; return Math.round(v*10)/10; };
+const fromU = v => unit()==="lb" ? v/LB : v;
+const fmtW = kg => toU(kg).toLocaleString();
+const fmtVol = kg => Math.round(toU(kg)).toLocaleString()+" "+unit();
+const working = sets => sets.filter(s=>!s.warm);
+const exVol = e => isTime(e.name) ? 0 : working(e.sets).reduce((b,s)=>b+((s.done!==false)?(+s.w||0)*(+s.r||0):0),0);
+const vol = w => w.exercises.reduce((a,e)=>a+exVol(e),0);
+const setTxt = (s, name) => (s.w ? fmtW(s.w)+"×" : "") + s.r + (isTime(name) ? "s" : "");
+function lastFor(name, beforeId){
+  for (const w of state.history){ if (w.id===beforeId) continue; const e = w.exercises.find(x=>x.name===name); if (e && e.sets.length) return e.sets; }
   return null;
 }
 function weekStart(t){ const d = new Date(t); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }
-function weekStats(back){
-  const s = weekStart(Date.now()); s.setDate(s.getDate()-7*back);
-  const e = new Date(s); e.setDate(e.getDate()+7);
-  const ws = state.history.filter(w=>w.start>=s.getTime() && w.start<e.getTime());
-  return {start:s.getTime(), count:ws.length, vol:ws.reduce((a,w)=>a+vol(w),0),
-          sets:ws.reduce((a,w)=>a+w.exercises.reduce((b,x)=>b+x.sets.length,0),0)};
+function periodStats(from, to){
+  const ws = state.history.filter(w=>w.start>=from && w.start<to);
+  return {from, count:ws.length, vol:ws.reduce((a,w)=>a+vol(w),0),
+          sets:ws.reduce((a,w)=>a+w.exercises.reduce((b,x)=>b+working(x.sets).length,0),0), list:ws};
 }
+const weekStats = back => { const s = weekStart(Date.now()); s.setDate(s.getDate()-7*back); const e = new Date(s); e.setDate(e.getDate()+7); return periodStats(s.getTime(), e.getTime()); };
+const e1rm = s => (s.w>0 && s.r>0 && s.r<=12) ? s.w*(1+s.r/30) : 0;
 let toastTimer;
-function flash(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2200); }
+function flash(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2600); }
+
+/* ---------- records ---------- */
+function bestsBefore(name, start){
+  const b = {heavy:0, e1:0, reps:0, hold:0, seen:false};
+  for (const w of state.history){
+    if (w.start >= start) continue;
+    const e = w.exercises.find(x=>x.name===name); if (!e) continue;
+    for (const s of working(e.sets)){
+      b.seen = true;
+      if (isTime(name)) b.hold = Math.max(b.hold, +s.r||0);
+      else { b.heavy = Math.max(b.heavy, +s.w||0); b.e1 = Math.max(b.e1, e1rm(s)); if (!(+s.w)) b.reps = Math.max(b.reps, +s.r||0); }
+    }
+  }
+  return b;
+}
+function prsOf(w){
+  const out = [];
+  for (const e of w.exercises){
+    const b = bestsBefore(e.name, w.start); if (!b.seen) continue;
+    const ws = working(e.sets); if (!ws.length) continue;
+    if (isTime(e.name)){ const m = Math.max(...ws.map(s=>+s.r||0)); if (m > b.hold) out.push(`${e.name}: longest hold ${m}s`); continue; }
+    const heavy = Math.max(...ws.map(s=>+s.w||0)), e1 = Math.max(...ws.map(e1rm)), reps = Math.max(0, ...ws.filter(s=>!(+s.w)).map(s=>+s.r||0));
+    if (heavy > 0 && heavy > b.heavy) out.push(`${e.name}: heaviest ${fmtW(heavy)} ${unit()}`);
+    else if (e1 > 0 && e1 > b.e1 + 0.01) out.push(`${e.name}: est. 1RM ${fmtW(e1)} ${unit()}`);
+    else if (reps > 0 && reps > b.reps && !heavy) out.push(`${e.name}: most reps ${reps}`);
+  }
+  return out;
+}
+function exStats(name){
+  const sessions = state.history.filter(w=>w.exercises.some(e=>e.name===name))
+    .map(w=>({w, e:w.exercises.find(e=>e.name===name)}));
+  const st = {sessions, heavy:null, e1:0, reps:0, hold:0, vol:0};
+  for (const {e} of sessions){
+    for (const s of working(e.sets)){
+      if (isTime(name)) st.hold = Math.max(st.hold, +s.r||0);
+      else {
+        if (+s.w>0 && (!st.heavy || +s.w>st.heavy.w || (+s.w===st.heavy.w && +s.r>st.heavy.r))) st.heavy = {w:+s.w, r:+s.r};
+        st.e1 = Math.max(st.e1, e1rm(s));
+        if (!(+s.w)) st.reps = Math.max(st.reps, +s.r||0);
+      }
+    }
+    st.vol = Math.max(st.vol, exVol(e));
+  }
+  return st;
+}
 
 /* ---------- views ---------- */
 function profileForm(first){
-  const p = state.profile || {name:"",weight:"",height:"",goal:"Build strength"};
+  const p = state.profile || {name:"",weight:"",height:"",goal:"Build strength",unit:"kg"};
+  const u = p.unit || "kg", wShown = p.weight==="" || p.weight==null ? "" : (u==="lb" ? Math.round(p.weight*LB*10)/10 : p.weight);
   return `<h2>${first?"Set up your profile":"Profile"}</h2>
   ${first?'<p class="note">Everything stays on this device. Nothing is uploaded.</p>':""}
   <form id="pf" class="form" data-first="${first?1:0}">
     <label>Name<input name="name" required maxlength="40" value="${esc(p.name)}" autocomplete="given-name"></label>
-    <label>Bodyweight (kg)<input name="weight" type="number" inputmode="decimal" step="0.1" min="0" value="${esc(p.weight)}"></label>
+    <label>Units<select name="unit" id="unitSel"><option value="kg" ${u==="kg"?"selected":""}>kg</option><option value="lb" ${u==="lb"?"selected":""}>lb</option></select></label>
+    <label><span>Bodyweight (<span id="bwU">${u}</span>)</span><input name="weight" id="bwIn" type="number" inputmode="decimal" step="0.1" min="0" value="${esc(wShown)}"></label>
     <label>Height (cm)<input name="height" type="number" inputmode="numeric" min="0" value="${esc(p.height)}"></label>
     <label>Main goal<select name="goal">${["Build strength","Build muscle","Lose fat","Stay active"].map(g=>`<option ${g===p.goal?"selected":""}>${g}</option>`).join("")}</select></label>
     <button class="btn primary" type="submit">${first?"Create profile":"Save profile"}</button>
   </form>
   ${first?"":`<h2>Your data</h2>
-  <p class="note">${state.history.length} workout${state.history.length===1?"":"s"} saved in this browser. Clearing your browser data erases them.</p>
+  <p class="note">${plural(state.history.length,"workout")}, ${plural(state.routines.length,"routine")} and ${plural(state.custom.length,"custom exercise")} saved in this browser. Clearing your browser data erases them.</p>
   <p class="note">Export a backup now and then. You can import it here or on another device.</p>
   <div class="row backup"><button class="btn" data-act="export">Export backup</button><button class="btn" data-act="import">Import backup</button></div>
   <button class="btn danger" data-act="wipe">Delete all data</button>`}`;
 }
 
-function entry(w, canDelete){
+function entry(w, full){
+  const prs = prsOf(w);
   return `<details class="entry"><summary><strong>${esc(w.name)}</strong>
-    <span class="meta">${fmtDate(w.start)}, ${fmtKg(vol(w))}</span></summary>
-    <ul>${w.exercises.map(e=>`<li><b>${esc(e.name)}</b> ${e.sets.map(s=>(s.w?s.w+"×":"")+s.r+(isTime(e.name)?"s":"")).join(", ")}</li>`).join("")}</ul>
-    ${canDelete?`<button class="btn ghost small danger" data-act="del" data-id="${esc(w.id)}">Delete workout</button>`:""}
+    <span class="meta">${fmtDate(w.start)}, ${fmtVol(vol(w))}</span>${prs.length?` <span class="badge">${prs.length===1?"New PR":prs.length+" PRs"}</span>`:""}</summary>
+    ${w.note?`<p class="wnote">${esc(w.note)}</p>`:""}
+    <ul class="lines">${w.exercises.map(e=>`<li><button class="linkish" data-act="exinfo" data-name="${esc(e.name)}"><b>${esc(e.name)}</b></button>
+      ${e.sets.map(s=>s.warm?`<span class="warmtxt">w ${setTxt(s,e.name)}</span>`:setTxt(s,e.name)).join(", ")}
+      ${e.note?`<div class="wnote">${esc(e.note)}</div>`:""}</li>`).join("")}</ul>
+    ${prs.length?`<p class="note">🏆 ${prs.map(esc).join("<br>🏆 ")}</p>`:""}
+    <div class="row backup">${full?`<button class="btn ghost small" data-act="edit" data-id="${esc(w.id)}">Edit</button>`:""}
+      <button class="btn ghost small" data-act="saveroutine" data-id="${esc(w.id)}">Save as routine</button>
+      ${full?`<button class="btn ghost small danger" data-act="del" data-id="${esc(w.id)}">Delete</button>`:""}</div>
   </details>`;
 }
 
-function exBlock(e,i){
-  const prev = lastFor(e.name), t = isTime(e.name);
+function exBlock(e,i,n){
+  const editing = state.active.editingId;
+  const prev = lastFor(e.name, editing), t = isTime(e.name), c = customOf(e.name);
   return `<section class="ex">
-    <div class="row"><h3>${esc(e.name)}</h3><button class="btn ghost small" data-act="rmex" data-i="${i}" aria-label="Remove ${esc(e.name)}">Remove</button></div>
+    <div class="exhead"><button class="exname" data-act="exinfo" data-name="${esc(e.name)}" aria-label="${esc(e.name)}: history and records">${esc(e.name)}</button>
+      <div class="ctl"><button class="btn ghost small" data-act="up" data-i="${i}" ${i===0?"disabled":""} aria-label="Move ${esc(e.name)} up">↑</button><button class="btn ghost small" data-act="down" data-i="${i}" ${i===n-1?"disabled":""} aria-label="Move ${esc(e.name)} down">↓</button><button class="btn ghost small" data-act="rmex" data-i="${i}" aria-label="Remove ${esc(e.name)}">Remove</button></div></div>
     <div class="sets">
-      <div class="sh"><span>Set</span><span>Previous</span><span>kg</span><span>${t?"sec":"reps"}</span><span></span></div>
-      ${e.sets.map((s,j)=>{ const p = prev && prev[j]; return `<div class="set ${s.done?"done":""}">
-        <span>${j+1}</span>
-        <span class="prev">${p?(p.w?p.w+" × ":"")+p.r:"–"}</span>
-        <input type="number" inputmode="decimal" step="0.5" min="0" data-f="w" data-i="${i}" data-j="${j}" value="${esc(s.w)}" placeholder="${p?esc(p.w):""}" aria-label="Set ${j+1} weight in kg">
+      <div class="sh"><span>Set</span><span>Previous</span><span>${unit()}</span>${c?`<button class="unit" data-act="unit" data-i="${i}" aria-label="Logged in ${t?"seconds":"reps"}. Switch to ${t?"reps":"seconds"}">${t?"sec":"reps"} ⇄</button>`:`<span>${t?"sec":"reps"}</span>`}<span></span></div>
+      ${e.sets.map((s,j)=>{ const p = prev && prev[j]; return `<div class="set ${s.done?"done":""} ${s.warm?"warm":""}">
+        <button class="setno" data-act="warm" data-i="${i}" data-j="${j}" aria-label="Set ${j+1}${s.warm?", warm-up":""}. Tap to ${s.warm?"make it a working set":"mark as warm-up"}">${s.warm?"W":j+1}</button>
+        <span class="prev">${p?(p.w?fmtW(p.w)+" × ":"")+p.r:"–"}</span>
+        <input type="number" inputmode="decimal" step="any" min="0" data-f="w" data-i="${i}" data-j="${j}" value="${s.w===""||s.w==null?"":toU(s.w)}" placeholder="${p&&p.w?toU(p.w):""}" aria-label="Set ${j+1} weight in ${unit()}">
         <input type="number" inputmode="numeric" min="0" data-f="r" data-i="${i}" data-j="${j}" value="${esc(s.r)}" placeholder="${p?esc(p.r):""}" aria-label="Set ${j+1} ${t?"seconds":"reps"}">
         <button class="chk" data-act="done" data-i="${i}" data-j="${j}" aria-pressed="${!!s.done}" aria-label="Mark set ${j+1} done">✓</button>
       </div>`; }).join("")}
     </div>
-    <button class="btn ghost small" data-act="addset" data-i="${i}">Add set</button>
+    <div class="row"><button class="btn ghost small" data-act="addset" data-i="${i}">Add set</button></div>
+    <input class="exnote" data-f="exnote" data-i="${i}" value="${esc(e.note)}" placeholder="Note for ${esc(e.name)} (optional)" aria-label="Note for ${esc(e.name)}" maxlength="200">
   </section>`;
 }
 
@@ -269,14 +394,27 @@ function workoutView(){
   if (!a){
     const last = state.history[0], wk = weekStats(0);
     return `<h2>Today</h2>
-    <button class="btn primary big" data-act="start">Start workout</button>
-    <p class="note">${wk.count} workout${wk.count===1?"":"s"} this week${wk.count?", "+fmtKg(wk.vol)+" lifted":""}.</p>
+    <button class="btn primary big" data-act="start">Start empty workout</button>
+    ${last?`<button class="btn big" data-act="repeat">Repeat last: ${esc(last.name)}</button>`:""}
+    <p class="note">${plural(wk.count,"workout")} this week${wk.count?", "+fmtVol(wk.vol)+" lifted":""}.</p>
+    <h2>Routines</h2>
+    ${state.routines.length ? state.routines.map(r=>`<div class="routine"><button class="pick" data-act="startroutine" data-id="${esc(r.id)}">${esc(r.name)} <small>· ${plural(r.exercises.length,"exercise")}</small></button>
+      <button class="btn ghost small" data-act="renroutine" data-id="${esc(r.id)}" aria-label="Rename ${esc(r.name)}">Rename</button><button class="btn ghost small danger" data-act="delroutine" data-id="${esc(r.id)}" aria-label="Delete ${esc(r.name)}">Delete</button></div>`).join("")
+      : '<p class="note">No routines yet. Open a finished workout in History, or under Last time, and choose Save as routine.</p>'}
     ${last?`<h2>Last time</h2>${entry(last,false)}`:'<p class="note">Your first workout shows up here once you finish it.</p>'}`;
   }
-  return `<div class="row"><input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name"></div>
-    ${a.exercises.map(exBlock).join("") || '<p class="note">Add your first exercise to start logging sets.</p>'}
+  const date = a.date || ymd(a.start);
+  return `${a.editingId?'<p class="note"><span class="badge">Editing</span> Changes are saved to History when you choose Save changes.</p>':""}
+    <div class="row"><input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name" maxlength="60"></div>
+    <label class="note">Date <input class="datein" type="date" data-f="date" value="${date}" max="${ymd(Date.now())}" aria-label="Workout date"></label>
+    ${a.exercises.length?'<p class="hint">Tap a set number to mark a warm-up (W). Warm-ups don’t count toward volume or records. Tap an exercise name for its history.</p>':""}
+    ${a.exercises.map((e,i)=>exBlock(e,i,a.exercises.length)).join("") || '<p class="note">Add your first exercise to start logging sets.</p>'}
     <button class="btn" data-act="pick">Add exercise</button>
-    <div class="row end"><button class="btn ghost danger" data-act="discard">Discard</button><button class="btn primary" data-act="finish">Finish workout</button></div>`;
+    <h3 style="margin-top:28px">Workout notes</h3>
+    <textarea data-f="note" placeholder="How did it feel? Anything to remember next time?" aria-label="Workout notes" maxlength="1000">${esc(a.note)}</textarea>
+    <div class="row end">${a.editingId
+      ?'<button class="btn ghost" data-act="canceledit">Cancel</button><button class="btn primary" data-act="finish">Save changes</button>'
+      :'<button class="btn ghost danger" data-act="discard">Discard</button><button class="btn primary" data-act="finish">Finish workout</button>'}</div>`;
 }
 
 function historyView(){
@@ -285,24 +423,64 @@ function historyView(){
 }
 
 function progressView(){
-  const weeks = [...Array(8)].map((_,i)=>weekStats(7-i));
-  const max = Math.max(1, ...weeks.map(w=>w.vol));
-  const cur = weeks[7], prev = weeks[6];
+  const n = state.ui.range, now = Date.now();
+  const startCur = weekStart(now); startCur.setDate(startCur.getDate()-7*(n-1));
+  const endCur = weekStart(now); endCur.setDate(endCur.getDate()+7);
+  const startPrev = new Date(startCur); startPrev.setDate(startPrev.getDate()-7*n);
+  const cur = periodStats(startCur.getTime(), endCur.getTime()), prev = periodStats(startPrev.getTime(), startCur.getTime());
   const diff = prev.vol ? Math.round((cur.vol-prev.vol)/prev.vol*100) : null;
-  const W=320, H=180, bw=24, slot=W/8;
-  const bars = weeks.map((w,i)=>{
-    const h = Math.round(w.vol/max*(H-54)), x = i*slot+(slot-bw)/2, y = H-24-h;
-    return `<g><rect x="${x}" y="${y}" width="${bw}" height="${w.vol?Math.max(h,2):0}" rx="3" class="bar${i===7?" now":""}">
-      <title>Week of ${shortDate(w.start)}: ${fmtKg(w.vol)}, ${w.count} workouts</title></rect>
-      <text x="${x+bw/2}" y="${H-6}" text-anchor="middle" class="lbl">${shortDate(w.start)}</text>
-      ${w.count?`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" class="cnt">${w.count}</text>`:""}</g>`;
+  const label = n===1 ? "This week" : `Last ${n} weeks`;
+  // bars: days for one week, weeks otherwise
+  let buckets;
+  if (n===1){
+    buckets = [...Array(7)].map((_,i)=>{ const d = new Date(startCur); d.setDate(d.getDate()+i); const e = new Date(d); e.setDate(e.getDate()+1);
+      return {...periodStats(d.getTime(), e.getTime()), lbl:d.toLocaleDateString(undefined,{weekday:"short"}), tip:fmtDate(d)}; });
+  } else {
+    buckets = [...Array(n)].map((_,i)=>{ const d = new Date(startCur); d.setDate(d.getDate()+7*i); const e = new Date(d); e.setDate(e.getDate()+7);
+      return {...periodStats(d.getTime(), e.getTime()), lbl:shortDate(d), tip:"Week of "+shortDate(d)}; });
+  }
+  const max = Math.max(1, ...buckets.map(b=>b.vol));
+  const W=320, H=180, k=buckets.length, slot=W/k, bw=Math.min(28, slot*0.6), every = k>8 ? 2 : 1;
+  const bars = buckets.map((b,i)=>{
+    const h = Math.round(b.vol/max*(H-54)), x = i*slot+(slot-bw)/2, y = H-24-h;
+    return `<g><rect x="${x}" y="${y}" width="${bw}" height="${b.vol?Math.max(h,2):0}" rx="3" class="bar${i===k-1?" now":""}">
+      <title>${b.tip}: ${fmtVol(b.vol)}, ${plural(b.count,"workout")}</title></rect>
+      ${(i%every===0 || i===k-1)?`<text x="${x+bw/2}" y="${H-6}" text-anchor="middle" class="lbl">${b.lbl}</text>`:""}
+      ${b.count?`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" class="cnt">${b.count}</text>`:""}</g>`;
   }).join("");
-  return `<h2>This week</h2>
-  <div class="stats"><div><b>${cur.count}</b><span>workout${cur.count===1?"":"s"}</span></div><div><b>${fmtKg(cur.vol)}</b><span>volume</span></div><div><b>${cur.sets}</b><span>sets</span></div></div>
-  <p class="note">${diff===null?"Log workouts two weeks in a row to see how your volume changes.":`${diff>=0?"Up":"Down"} ${Math.abs(diff)}% on last week’s volume.`}</p>
-  <h2>Last 8 weeks</h2>
-  <figure class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly training volume, last 8 weeks">${bars}</svg>
-  <figcaption>Bars show total kg lifted (weight × reps) each week, starting Monday. The number above a bar is how many workouts you did.</figcaption></figure>`;
+  // exercises done in this period
+  const tally = {};
+  for (const w of cur.list) for (const e of w.exercises){ (tally[e.name] = tally[e.name] || {n:0, sets:0}); tally[e.name].n++; tally[e.name].sets += working(e.sets).length; }
+  const exRows = Object.entries(tally).sort((a,b)=>b[1].n-a[1].n || b[1].sets-a[1].sets).map(([name,t])=>{
+    const st = exStats(name);
+    const best = isTime(name) ? (st.hold?`best ${st.hold}s`:"") : st.heavy ? `best ${fmtW(st.heavy.w)} ${unit()} × ${st.heavy.r}` : (st.reps?`best ${st.reps} reps`:"");
+    return `<button class="pick" data-act="exinfo" data-name="${esc(name)}">${esc(name)} <small>· ${plural(t.n,"session")}, ${plural(t.sets,"set")}${best?" · "+best:""}</small></button>`;
+  }).join("");
+  return `<h2>Progress</h2>
+  <div class="seg" role="group" aria-label="Time range">${RANGES.map(r=>`<button class="btn" data-act="range" data-n="${r}" aria-pressed="${r===n}">${r===1?"1 week":r+" weeks"}</button>`).join("")}</div>
+  <h3>${label}</h3>
+  <div class="stats"><div><b>${cur.count}</b><span>${cur.count===1?"workout":"workouts"}</span></div><div><b>${fmtVol(cur.vol)}</b><span>volume</span></div><div><b>${cur.sets}</b><span>working sets</span></div></div>
+  <p class="note">${n>1?`About ${Math.round(cur.count/n*10)/10} workouts a week. `:""}${diff===null?`Not enough earlier data to compare with the ${n===1?"previous week":"previous "+n+" weeks"} yet.`:`Volume ${diff>=0?"up":"down"} ${Math.abs(diff)}% on the ${n===1?"previous week":"previous "+n+" weeks"}.`}</p>
+  <figure class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Training volume, ${label.toLowerCase()}">${bars}</svg>
+  <figcaption>Bars show total ${unit()} lifted (weight × reps, warm-ups excluded) ${n===1?"each day this week":"each week, starting Monday"}. The number above a bar is how many workouts you did.</figcaption></figure>
+  <h2>Exercises</h2>
+  ${exRows || `<p class="note">No exercises logged in this period.</p>`}
+  ${exRows?'<p class="hint">Tap an exercise for its full history and personal records.</p>':""}`;
+}
+
+function exInfo(name){
+  const st = exStats(name), t = isTime(name);
+  $("#exTitle").textContent = name;
+  const cards = t
+    ? [[st.hold?st.hold+"s":"–","longest hold"],[st.sessions.length,"sessions"]]
+    : [[st.heavy?`${fmtW(st.heavy.w)} ${unit()}`:"–", st.heavy?`heaviest (× ${st.heavy.r})`:"heaviest"],[st.e1?`${fmtW(st.e1)} ${unit()}`:"–","est. 1-rep max"],
+       ...(st.reps || !st.heavy ? [[st.reps||"–","most reps (bodyweight)"]] : []),[st.sessions.length,"sessions"]];
+  $("#exBody").innerHTML = `<div class="top3">${cards.map(([v,l])=>`<div><b>${esc(v)}</b><span>${l}</span></div>`).join("")}</div>
+    ${!t?'<p class="hint">Est. 1-rep max uses the Epley formula on working sets of 12 reps or fewer.</p>':""}
+    <h3 style="margin-top:14px">History</h3>
+    ${st.sessions.length ? `<ul class="lines">${st.sessions.map(({w,e})=>`<li><b>${fmtDate(w.start)}</b> <span class="meta">${esc(w.name)}</span><br>${e.sets.map(s=>s.warm?`<span class="warmtxt">w ${setTxt(s,name)}</span>`:setTxt(s,name)).join(", ")}${e.note?`<div class="wnote">${esc(e.note)}</div>`:""}</li>`).join("")}</ul>`
+      : '<p class="note">Not logged in a finished workout yet.</p>'}`;
+  const d = $("#exdlg"); if (!d.open) d.showModal();
 }
 
 function render(){
@@ -313,70 +491,132 @@ function render(){
   view.innerHTML = ({workout:workoutView, history:historyView, progress:progressView, profile:()=>profileForm(false)})[tab]();
 }
 
+/* ---------- workouts ---------- */
+const blankSets = (n, warm=0) => [...Array(n)].map((_,j)=>({w:"", r:"", done:false, warm:j<warm}));
+function startWith(name, exercises){
+  state.active = {id:newId(), name, start:Date.now(), date:ymd(Date.now()), note:"", exercises};
+  tab = "workout";
+}
+function fromWorkout(w){ // exercises shaped for a new workout, same exercises and set counts
+  return w.exercises.map(e=>({name:e.name, note:"", sets:e.sets.map(s=>({w:"", r:"", done:false, warm:!!s.warm}))}));
+}
+function finishActive(){
+  const a = state.active;
+  const ex = a.exercises.map(x=>{
+    const o = {name:x.name, sets:x.sets.filter(s=>s.done).map(s=>{ const r={w:Math.round((+s.w||0)*1000)/1000, r:+s.r}; if (s.warm) r.warm=true; return r; })};
+    if (x.note && x.note.trim()) o.note = x.note.trim();
+    return o;
+  }).filter(x=>x.sets.length);
+  if (!ex.length){ flash("Mark at least one set done before saving."); return false; }
+  const date = a.date || ymd(a.start);
+  let start = a.start;
+  if (date !== ymd(a.start)){ const [y,m,d] = date.split("-").map(Number); start = new Date(y, m-1, d, 12).getTime(); }
+  const w = {id:a.editingId || a.id, name:(a.name||"").trim()||"Workout", start, end:Math.max(start, a.end || Date.now()), exercises:ex};
+  if (a.note && a.note.trim()) w.note = a.note.trim();
+  state.history = state.history.filter(h=>h.id!==w.id);
+  state.history.push(w); state.history.sort((x,y)=>y.start-x.start);
+  state.active = null;
+  const prs = prsOf(w);
+  flash(a.editingId ? "Changes saved." : prs.length ? `Workout saved. New PR — ${prs[0]}${prs.length>1?` (+${prs.length-1} more)`:""}` : "Workout saved.");
+  return true;
+}
+
 /* ---------- events ---------- */
 view.addEventListener("click", e=>{
   const b = e.target.closest("[data-act]"); if (!b) return;
   const {act, id} = b.dataset, i = +b.dataset.i, j = +b.dataset.j, a = state.active;
   switch (act){
-    case "start":
-      state.active = {id:Date.now().toString(36), name:new Date().toLocaleDateString(undefined,{weekday:"long"})+" workout", start:Date.now(), exercises:[]};
-      break;
+    case "start": startWith(new Date().toLocaleDateString(undefined,{weekday:"long"})+" workout", []); break;
+    case "repeat": { const l = state.history[0]; if (!l) return; startWith(l.name, fromWorkout(l)); break; }
+    case "startroutine": { const r = state.routines.find(x=>x.id===id); if (!r) return; startWith(r.name, r.exercises.map(x=>({name:x.name, note:"", sets:blankSets(x.sets, x.warm)}))); break; }
+    case "saveroutine": {
+      const w = state.history.find(x=>x.id===id); if (!w) return;
+      let name = w.name, k = 2; while (state.routines.some(r=>r.name===name)) name = `${w.name} (${k++})`;
+      state.routines.push({id:newId(), name, exercises:w.exercises.map(x=>({name:x.name, sets:x.sets.length, warm:x.sets.filter(s=>s.warm).length}))});
+      flash(`Saved routine “${name}”. Find it under Workout.`); break;
+    }
+    case "renroutine": { const r = state.routines.find(x=>x.id===id); if (!r) return; const nn = prompt("Routine name", r.name); if (nn===null || !nn.trim()) return; r.name = nn.trim().slice(0,60); break; }
+    case "delroutine": { const r = state.routines.find(x=>x.id===id); if (!r || !confirm(`Delete the routine “${r.name}”? Past workouts aren’t affected.`)) return; state.routines = state.routines.filter(x=>x.id!==id); break; }
+    case "edit": {
+      if (a){ flash(a.editingId ? "Finish editing the other workout first." : "Finish or discard your current workout first."); return; }
+      const w = state.history.find(x=>x.id===id); if (!w) return;
+      state.active = {id:w.id, editingId:w.id, name:w.name, start:w.start, end:w.end, date:ymd(w.start), note:w.note||"",
+        exercises:w.exercises.map(x=>({name:x.name, note:x.note||"", sets:x.sets.map(s=>({w:s.w||"", r:String(s.r), done:true, warm:!!s.warm}))}))};
+      tab = "workout"; window.scrollTo(0,0); break;
+    }
+    case "canceledit": state.active = null; tab = "history"; break;
+    case "exinfo": exInfo(b.dataset.name); return;
+    case "range": state.ui.range = +b.dataset.n; break;
     case "pick": openPicker(); return;
     case "rmex": a.exercises.splice(i,1); break;
-    case "addset": { const ex=a.exercises[i], l=ex.sets[ex.sets.length-1]; ex.sets.push({w:l?l.w:"", r:l?l.r:"", done:false}); break; }
+    case "up": if (i>0) [a.exercises[i-1], a.exercises[i]] = [a.exercises[i], a.exercises[i-1]]; break;
+    case "down": if (i<a.exercises.length-1) [a.exercises[i+1], a.exercises[i]] = [a.exercises[i], a.exercises[i+1]]; break;
+    case "unit": { const c = customOf(a.exercises[i].name); if (c){ c.timed = !c.timed; flash(`${c.name} now logs ${c.timed?"seconds":"reps"}.`); } break; }
+    case "warm": a.exercises[i].sets[j].warm = !a.exercises[i].sets[j].warm; break;
+    case "addset": { const ex=a.exercises[i], l=ex.sets[ex.sets.length-1]; ex.sets.push({w:l?l.w:"", r:l?l.r:"", done:false, warm:false}); break; }
     case "done": {
       const ex=a.exercises[i], s=ex.sets[j];
       if (!s.done){
-        const p=(lastFor(ex.name)||[])[j];
-        if (s.w==="" && p) s.w=String(p.w); if (s.r==="" && p) s.r=String(p.r);
+        const p=(lastFor(ex.name, a.editingId)||[])[j];
+        if (s.w==="" && p) s.w=p.w; if (s.r==="" && p) s.r=String(p.r);
         if (!(+s.r>0)){ flash(`Enter ${isTime(ex.name)?"seconds":"reps"} before marking the set done.`); return; }
       }
       s.done=!s.done; break;
     }
-    case "finish": {
-      const ex = a.exercises.map(x=>({name:x.name, sets:x.sets.filter(s=>s.done).map(s=>({w:+s.w||0, r:+s.r}))})).filter(x=>x.sets.length);
-      if (!ex.length){ flash("Mark at least one set done before finishing."); return; }
-      state.history.unshift({id:a.id, name:a.name.trim()||"Workout", start:a.start, end:Date.now(), exercises:ex});
-      state.active=null; flash("Workout saved."); break;
-    }
+    case "finish": { const was = a.editingId; if (!finishActive()) return; if (was) tab = "history"; break; }
     case "discard": if (!confirm("Discard this workout? Logged sets will be lost.")) return; state.active=null; break;
     case "del": if (!confirm("Delete this workout from history?")) return; state.history=state.history.filter(w=>w.id!==id); flash("Workout deleted."); break;
-    case "wipe": if (!confirm("Delete your profile and all workouts from this browser?")) return; state={profile:null,history:[],active:null,custom:[]}; tab="workout"; break;
+    case "wipe": if (!confirm("Delete your profile, workouts, routines and custom exercises from this browser?")) return; state=normalize(null); tab="workout"; break;
     case "export": exportBackup(); return;
     case "import": $("#importFile").value=""; $("#importFile").click(); return;
+    default: return;
   }
   save(); render();
 });
 
 view.addEventListener("input", e=>{
-  const t=e.target, f=t.dataset.f; if (!f || !state.active) return;
-  if (f==="name") state.active.name=t.value;
-  else state.active.exercises[+t.dataset.i].sets[+t.dataset.j][f]=t.value;
+  const t=e.target, f=t.dataset.f;
+  if (t.id==="unitSel"){ // convert the bodyweight box when units change
+    const bw=$("#bwIn"), v=parseFloat(bw.value), was=$("#bwU").textContent;
+    if (!isNaN(v) && was!==t.value) bw.value = Math.round((t.value==="lb" ? v*LB : v/LB)*10)/10;
+    $("#bwU").textContent = t.value; return;
+  }
+  if (!f || !state.active) return;
+  const a = state.active;
+  if (f==="name") a.name=t.value;
+  else if (f==="note") a.note=t.value;
+  else if (f==="date"){ if (t.value) a.date=t.value; }
+  else if (f==="exnote") a.exercises[+t.dataset.i].note=t.value;
+  else if (f==="w"){ a.exercises[+t.dataset.i].sets[+t.dataset.j].w = t.value==="" ? "" : fromU(+t.value); }
+  else a.exercises[+t.dataset.i].sets[+t.dataset.j][f]=t.value;
   save();
 });
 
 view.addEventListener("submit", e=>{
   e.preventDefault();
-  const d = Object.fromEntries(new FormData(e.target)); d.name=d.name.trim();
+  const d = Object.fromEntries(new FormData(e.target)); d.name=(d.name||"").trim();
   if (!d.name) return;
+  d.unit = d.unit==="lb" ? "lb" : "kg";
+  d.weight = d.weight==="" ? "" : Math.round((d.unit==="lb" ? +d.weight/LB : +d.weight)*100)/100;
   const first = e.target.dataset.first==="1";
   state.profile = d; save(); flash(first?"Profile created.":"Profile saved."); render();
 });
 
 $("#tabs").addEventListener("click", e=>{ const b=e.target.closest("button"); if (!b) return; tab=b.dataset.tab; render(); window.scrollTo(0,0); });
+$("#closeEx").addEventListener("click", ()=>$("#exdlg").close());
 
 /* backup: export / import */
 function exportBackup(){
-  const d = new Date(), day = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  const data = {app:"Setbook", version:1, exported:d.toISOString(), profile:state.profile, history:state.history, active:state.active, custom:state.custom};
+  const d = new Date();
+  const data = {app:"Setbook", version:2, exported:d.toISOString(), profile:state.profile, history:state.history, active:state.active,
+                custom:state.custom, routines:state.routines, ui:state.ui};
   const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}));
-  const a = document.createElement("a"); a.href=url; a.download=`setbook-backup-${day}.json`;
+  const a = document.createElement("a"); a.href=url; a.download=`setbook-backup-${ymd(d)}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   flash("Backup exported.");
 }
 function validBackup(d){
-  const isObj = x => x && typeof x==="object" && !Array.isArray(x);
   return isObj(d) && isObj(d.profile) && typeof d.profile.name==="string" && d.profile.name.trim() !== ""
     && Array.isArray(d.history) && d.history.every(w => isObj(w) && w.id!=null && typeof w.start==="number" && typeof w.end==="number"
       && Array.isArray(w.exercises) && w.exercises.every(e => isObj(e) && typeof e.name==="string" && Array.isArray(e.sets)));
@@ -386,52 +626,71 @@ $("#importFile").addEventListener("change", async e=>{
   let d; try { d = JSON.parse(await f.text()); } catch(err){ flash("That file isn’t a Setbook backup."); return; }
   if (!validBackup(d)){ flash("That file isn’t a Setbook backup."); return; }
   const n = d.history.length;
-  if (!confirm(`Replace your profile and ${state.history.length} workout${state.history.length===1?"":"s"} with this backup (${n} workout${n===1?"":"s"})? Your current data will be lost.`)) return;
-  const act = d.active;
-  state = {profile:d.profile, history:d.history.map(w=>({...w, id:String(w.id)})),
-           active:(act && typeof act==="object" && typeof act.start==="number" && Array.isArray(act.exercises)) ? act : null,
-           custom:cleanCustom(d.custom)};
+  if (!confirm(`Replace your profile and ${plural(state.history.length,"workout")} with this backup (${plural(n,"workout")})? Your current data will be lost.`)) return;
+  state = normalize({profile:d.profile, history:d.history.map(w=>({...w, id:String(w.id)})), active:d.active, custom:d.custom, routines:d.routines, ui:d.ui});
   save(); flash("Backup imported."); render();
 });
 
 /* picker */
 const picker = $("#picker");
+const cleanName = s => s.trim().replace(/\s+/g," ").slice(0,40);
+function matches(){
+  const raw = cleanName($("#q").value), q = raw.toLowerCase();
+  const mine = state.custom.filter(c=>c.name.toLowerCase().includes(q)).map(c=>c.name);
+  const builtin = EX.filter(x=>x[0].toLowerCase().includes(q));
+  const exact = [...state.custom.map(c=>c.name), ...EX.map(x=>x[0])].find(n=>n.toLowerCase()===q);
+  return {raw, q, mine, builtin, exact};
+}
+function suggestUrl(name){
+  const body = `Please add this exercise to Setbook's built-in list.\n\nExercise: ${name}\nLogged in: ${isTime(name)?"seconds":"reps"}\nMuscle group or section: `;
+  return `${REPO}/issues/new?title=${encodeURIComponent("Exercise suggestion: "+name)}&body=${encodeURIComponent(body)}`;
+}
 function renderList(){
-  const raw = $("#q").value.trim().replace(/\s+/g," "), q = raw.toLowerCase();
+  const {raw, q, mine, builtin, exact} = matches();
   const have = new Set((state.active?.exercises||[]).map(e=>e.name));
-  const btn = (n, extra="") => `<button class="pick" data-add="${esc(n)}" ${have.has(n)?"disabled":""}>${esc(n)}${have.has(n)?" <small>(added)</small>":""}</button>${extra}`;
-  const mine = state.custom.filter(c=>c.name.toLowerCase().includes(q));
-  let html = mine.length ? `<h3>My exercises</h3>` + mine.map(c=>`<div class="mine">${btn(c.name)}<button class="btn ghost small danger" data-rmcustom="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from my exercises">Remove</button></div>`).join("") : "";
-  html += MUSCLES.map(m=>{
-    const items = EX.filter(x=>x[1]===m && x[0].toLowerCase().includes(q));
-    return items.length ? `<h3>${m}</h3>` + items.map(([n])=>btn(n)).join("") : "";
-  }).join("");
-  const exists = raw && (EX.some(x=>x[0].toLowerCase()===q) || state.custom.some(c=>c.name.toLowerCase()===q));
-  if (raw && !exists){
-    html += `<div class="addown"><p class="note">Not in the list? Add “${esc(raw.slice(0,40))}” as your own exercise, logged in:</p>
-      <div class="row backup"><button class="btn small" data-newcustom="reps">Reps</button><button class="btn small" data-newcustom="sec">Seconds</button></div></div>`;
+  const btn = n => `<button class="pick" data-add="${esc(n)}" ${have.has(n)?"disabled":""}>${esc(n)}${have.has(n)?" <small>(added)</small>":""}</button>`;
+  let html = "";
+  if (raw && !exact){
+    const timed = TIMED_WORDS.test(raw), none = !mine.length && !builtin.length;
+    html += `<div class="addfirst"><button class="btn primary" data-newcustom="1">+ Add “${esc(raw)}”</button>
+      <p class="hint">Saved to your exercises, logged in ${timed?"seconds":"reps"}. You can switch to ${timed?"reps":"seconds"} on the exercise card.${none?" Press Enter to add.":""}</p></div>`;
   }
+  if (mine.length) html += `<h3>My exercises</h3>` + mine.map(n=>`<div class="mine">${btn(n)}<a class="btn ghost small" href="${esc(suggestUrl(n))}" target="_blank" rel="noopener" aria-label="Suggest ${esc(n)} for everyone (opens GitHub)">Suggest</a><button class="btn ghost small danger" data-rmcustom="${esc(n)}" aria-label="Remove ${esc(n)} from my exercises">Remove</button></div>`).join("")
+    + '<p class="hint">Suggest sends an exercise to the Setbook project on GitHub (account needed) so it can be added for everyone.</p>';
+  html += MUSCLES.map(m=>{ const items = builtin.filter(x=>x[1]===m); return items.length ? `<h3>${m}</h3>` + items.map(([n])=>btn(n)).join("") : ""; }).join("");
   $("#list").innerHTML = html || '<p class="note">Type a name to search, or to add your own exercise.</p>';
 }
 function addToWorkout(name){
-  const prev=lastFor(name), n = prev ? prev.length : 3;
-  state.active.exercises.push({name, sets:[...Array(n)].map(()=>({w:"",r:"",done:false}))});
+  const prev=lastFor(name, state.active.editingId), n = prev ? prev.length : 3;
+  state.active.exercises.push({name, note:"", sets:prev ? prev.map(s=>({w:"",r:"",done:false,warm:!!s.warm})) : blankSets(n)});
 }
-function openPicker(){ $("#q").value=""; renderList(); picker.showModal(); }
+function addCustom(){
+  const name = cleanName($("#q").value); if (!name || !state.active) return;
+  if (!customOf(name)) state.custom.push({name, timed:TIMED_WORDS.test(name)});
+  addToWorkout(name); picker.close(); save(); render(); flash(`Added “${name}” to your exercises.`);
+}
+function addPicked(name){
+  if (!state.active || state.active.exercises.some(e=>e.name===name)) return;
+  addToWorkout(name); picker.close(); save(); render();
+}
+function openPicker(){ $("#q").value=""; renderList(); picker.showModal(); $("#q").focus(); }
 $("#q").addEventListener("input", renderList);
+$("#q").addEventListener("keydown", e=>{
+  if (e.key!=="Enter") return;
+  e.preventDefault();
+  const {raw, mine, builtin, exact} = matches(); if (!raw) return;
+  const all = [...mine, ...builtin.map(x=>x[0])];
+  if (exact) addPicked(exact);
+  else if (all.length===1) addPicked(all[0]);
+  else if (!all.length) addCustom();
+  else flash("Several exercises match. Tap one, or tap + Add to create your own.");
+});
 $("#closePick").addEventListener("click", ()=>picker.close());
 $("#list").addEventListener("click", e=>{
   const rm=e.target.closest("[data-rmcustom]");
   if (rm){ state.custom=state.custom.filter(c=>c.name!==rm.dataset.rmcustom); save(); renderList(); flash("Removed from your exercises. Past workouts keep it."); return; }
-  const nc=e.target.closest("[data-newcustom]");
-  if (nc){
-    const name=$("#q").value.trim().replace(/\s+/g," ").slice(0,40); if (!name || !state.active) return;
-    state.custom.push({name, timed:nc.dataset.newcustom==="sec"});
-    addToWorkout(name); picker.close(); save(); render(); flash(`Added “${name}” to your exercises.`); return;
-  }
-  const b=e.target.closest("[data-add]"); if (!b || !state.active) return;
-  addToWorkout(b.dataset.add);
-  picker.close(); save(); render();
+  if (e.target.closest("[data-newcustom]")){ addCustom(); return; }
+  const b=e.target.closest("[data-add]"); if (b) addPicked(b.dataset.add);
 });
 render();
 
