@@ -1,11 +1,11 @@
 /* Setbook service worker: precaches the app shell so it works offline.
    Paths are relative to this file, so it works at the site root or under /setbook/.
    Bump VERSION whenever index.html, the manifest or the icons change. */
-const VERSION = "setbook-v2";
+const VERSION = "setbook-v3";
 const ASSETS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(ASSETS.map(a => new Request(a, {cache: "reload"})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -23,7 +23,7 @@ self.addEventListener("fetch", e => {
   if (req.mode === "navigate"){
     // Network first so new versions show up; fall back to the cached page offline.
     e.respondWith(
-      fetch(req)
+      fetch(req, {cache: "no-cache"})
         .then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put("index.html", copy)); return res; })
         .catch(() => caches.match("index.html"))
     );
