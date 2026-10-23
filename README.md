@@ -6,8 +6,8 @@ Free workout tracker. Log sets, track history and weekly progress. Data stays on
 
 ## What it does
 
-- **Workout**: start a workout, add exercises from a list of 30, and log weight and reps (or seconds) for each set. Your numbers from last time show next to each set.
-- **History**: every finished workout with its date, duration, total volume and sets. Delete any you don't want.
+- **Workout**: start a workout, add exercises from a list of over 70, including a Pilates section, and log weight and reps (or seconds) for each set. Can't find one? Type its name and add it as your own exercise. It's saved on your device and included in backups. Your numbers from last time show next to each set.
+- **History**: every finished workout with its date, total volume and sets. Delete any you don't want.
 - **Progress**: this week's workouts, volume and sets, plus a chart of the last 8 weeks.
 - **Profile**: name, bodyweight, height and goal. Export or import a backup of your data.
 

@@ -65,7 +65,6 @@ select{background:var(--paper)}
 .form label{display:grid; font-weight:700}
 .form .btn{justify-self:start; margin-top:14px}
 .title{font-family:Kalam,cursive; font-size:26px; color:var(--ink); flex:1; min-width:180px; border-bottom-color:transparent}
-.clock{font-variant-numeric:tabular-nums; color:var(--pencil); font-weight:700}
 .ex{margin:28px 0}
 .sets{margin:6px 0}
 .sh,.set{display:grid; grid-template-columns:30px 1fr 72px 64px 44px; gap:8px; align-items:center}
@@ -114,6 +113,8 @@ dialog::backdrop{background:rgba(10,15,30,.45)}
 }
 .pick:hover:not(:disabled){color:var(--ink)}
 .pick:disabled{color:var(--pencil); cursor:default}
+.mine{display:flex; align-items:center; gap:8px} .mine .pick{flex:1}
+.addown{margin-top:14px}
 #toast{
   position:fixed; left:50%; bottom:calc(76px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
   background:var(--text); color:var(--paper); padding:8px 16px; border-radius:10px; font-weight:700;
@@ -141,7 +142,7 @@ dialog::backdrop{background:rgba(10,15,30,.45)}
 </nav>
 <dialog id="picker" aria-labelledby="pickTitle">
   <div class="ph"><h2 id="pickTitle">Add exercise</h2><button class="btn ghost small" id="closePick">Close</button></div>
-  <input id="q" type="search" placeholder="Search 30 exercises" aria-label="Search exercises">
+  <input id="q" type="search" placeholder="Search or add an exercise" aria-label="Search exercises">
   <div id="list"></div>
 </dialog>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -149,23 +150,43 @@ dialog::backdrop{background:rgba(10,15,30,.45)}
 
 <script>
 const EX = [
-  ["Bench Press","Chest"],["Incline Dumbbell Press","Chest"],["Push-up","Chest"],
-  ["Overhead Press","Shoulders"],["Dumbbell Shoulder Press","Shoulders"],["Lateral Raise","Shoulders"],
-  ["Pull-up","Back"],["Lat Pulldown","Back"],["Barbell Row","Back"],["Seated Cable Row","Back"],["Dumbbell Row","Back"],["Deadlift","Back"],
-  ["Back Squat","Legs"],["Front Squat","Legs"],["Leg Press","Legs"],["Romanian Deadlift","Legs"],["Lunge","Legs"],
-  ["Bulgarian Split Squat","Legs"],["Leg Curl","Legs"],["Leg Extension","Legs"],["Calf Raise","Legs"],["Hip Thrust","Legs"],
-  ["Bicep Curl","Arms"],["Hammer Curl","Arms"],["Tricep Pushdown","Arms"],["Skull Crusher","Arms"],["Dip","Arms"],
-  ["Plank","Core"],["Crunch","Core"],["Hanging Leg Raise","Core"]
+  ["Bench Press","Chest"],["Incline Bench Press","Chest"],["Incline Dumbbell Press","Chest"],["Dumbbell Bench Press","Chest"],
+  ["Chest Fly","Chest"],["Cable Crossover","Chest"],["Push-up","Chest"],
+  ["Overhead Press","Shoulders"],["Dumbbell Shoulder Press","Shoulders"],["Arnold Press","Shoulders"],["Lateral Raise","Shoulders"],
+  ["Front Raise","Shoulders"],["Rear Delt Fly","Shoulders"],["Face Pull","Shoulders"],["Shrug","Shoulders"],
+  ["Pull-up","Back"],["Chin-up","Back"],["Lat Pulldown","Back"],["Barbell Row","Back"],["Seated Cable Row","Back"],
+  ["Dumbbell Row","Back"],["T-Bar Row","Back"],["Deadlift","Back"],["Back Extension","Back"],
+  ["Back Squat","Legs"],["Front Squat","Legs"],["Goblet Squat","Legs"],["Leg Press","Legs"],["Hack Squat","Legs"],
+  ["Romanian Deadlift","Legs"],["Lunge","Legs"],["Walking Lunge","Legs"],["Bulgarian Split Squat","Legs"],["Step-up","Legs"],
+  ["Leg Curl","Legs"],["Leg Extension","Legs"],["Calf Raise","Legs"],["Hip Thrust","Legs"],["Glute Bridge","Legs"],
+  ["Bicep Curl","Arms"],["Hammer Curl","Arms"],["Preacher Curl","Arms"],["Tricep Pushdown","Arms"],["Overhead Tricep Extension","Arms"],
+  ["Skull Crusher","Arms"],["Close-Grip Bench Press","Arms"],["Dip","Arms"],
+  ["Plank","Core"],["Side Plank","Core"],["Crunch","Core"],["Hanging Leg Raise","Core"],["Russian Twist","Core"],
+  ["Cable Crunch","Core"],["Ab Wheel Rollout","Core"],["Mountain Climber","Core"],["Dead Bug","Core"],
+  ["The Hundred","Pilates"],["Roll Up","Pilates"],["Single Leg Circles","Pilates"],["Rolling Like a Ball","Pilates"],
+  ["Single Leg Stretch","Pilates"],["Double Leg Stretch","Pilates"],["Criss-Cross","Pilates"],["Spine Stretch Forward","Pilates"],
+  ["Saw","Pilates"],["Swan","Pilates"],["Swimming","Pilates"],["Teaser","Pilates"],["Side Kick Series","Pilates"],
+  ["Shoulder Bridge","Pilates"],["Leg Pull Front","Pilates"],["Pilates Plank","Pilates"]
 ];
-const MUSCLES = ["Chest","Shoulders","Back","Legs","Arms","Core"];
-const isTime = n => n === "Plank";
+const MUSCLES = ["Chest","Shoulders","Back","Legs","Arms","Core","Pilates"];
+const TIMED = new Set(["Plank","Side Plank","Swimming","Leg Pull Front","Pilates Plank"]);
+const isTime = n => TIMED.has(n) || !!(state.custom||[]).find(c=>c.name===n && c.timed);
 
 /* ---------- storage: localStorage with in-memory fallback ---------- */
 const KEY = "setbook:v1";
 let memCopy = null;
 function load(){
-  try { const s = localStorage.getItem(KEY); if (s) return JSON.parse(s); } catch(e){}
-  return memCopy || {profile:null, history:[], active:null};
+  let d = null;
+  try { const s = localStorage.getItem(KEY); if (s) d = JSON.parse(s); } catch(e){}
+  d = d || memCopy || {profile:null, history:[], active:null};
+  d.custom = cleanCustom(d.custom);
+  return d;
+}
+function cleanCustom(list){
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.filter(c => c && typeof c.name==="string" && c.name.trim() && !seen.has(c.name.trim().toLowerCase()) && seen.add(c.name.trim().toLowerCase()))
+             .map(c => ({name:c.name.trim().slice(0,40), timed:!!c.timed}));
 }
 function save(){
   memCopy = state;
@@ -181,7 +202,6 @@ const view = $("#view");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtDate = t => new Date(t).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
 const shortDate = t => new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short"});
-const dur = ms => { const m = Math.max(1, Math.round(ms/60000)); return m < 60 ? m+" min" : Math.floor(m/60)+" h "+(m%60)+" min"; };
 const vol = w => w.exercises.reduce((a,e)=>a+e.sets.reduce((b,s)=>b+((s.done!==false)?(+s.w||0)*(+s.r||0):0),0),0);
 const fmtKg = n => Math.round(n).toLocaleString()+" kg";
 function lastFor(name){
@@ -220,7 +240,7 @@ function profileForm(first){
 
 function entry(w, canDelete){
   return `<details class="entry"><summary><strong>${esc(w.name)}</strong>
-    <span class="meta">${fmtDate(w.start)}, ${dur(w.end-w.start)}, ${fmtKg(vol(w))}</span></summary>
+    <span class="meta">${fmtDate(w.start)}, ${fmtKg(vol(w))}</span></summary>
     <ul>${w.exercises.map(e=>`<li><b>${esc(e.name)}</b> ${e.sets.map(s=>(s.w?s.w+"×":"")+s.r+(isTime(e.name)?"s":"")).join(", ")}</li>`).join("")}</ul>
     ${canDelete?`<button class="btn ghost small danger" data-act="del" data-id="${esc(w.id)}">Delete workout</button>`:""}
   </details>`;
@@ -253,7 +273,7 @@ function workoutView(){
     <p class="note">${wk.count} workout${wk.count===1?"":"s"} this week${wk.count?", "+fmtKg(wk.vol)+" lifted":""}.</p>
     ${last?`<h2>Last time</h2>${entry(last,false)}`:'<p class="note">Your first workout shows up here once you finish it.</p>'}`;
   }
-  return `<div class="row"><input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name"><span id="clock" class="clock"></span></div>
+  return `<div class="row"><input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name"></div>
     ${a.exercises.map(exBlock).join("") || '<p class="note">Add your first exercise to start logging sets.</p>'}
     <button class="btn" data-act="pick">Add exercise</button>
     <div class="row end"><button class="btn ghost danger" data-act="discard">Discard</button><button class="btn primary" data-act="finish">Finish workout</button></div>`;
@@ -278,7 +298,7 @@ function progressView(){
       ${w.count?`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" class="cnt">${w.count}</text>`:""}</g>`;
   }).join("");
   return `<h2>This week</h2>
-  <div class="stats"><div><b>${cur.count}</b><span>workouts</span></div><div><b>${fmtKg(cur.vol)}</b><span>volume</span></div><div><b>${cur.sets}</b><span>sets</span></div></div>
+  <div class="stats"><div><b>${cur.count}</b><span>workout${cur.count===1?"":"s"}</span></div><div><b>${fmtKg(cur.vol)}</b><span>volume</span></div><div><b>${cur.sets}</b><span>sets</span></div></div>
   <p class="note">${diff===null?"Log workouts two weeks in a row to see how your volume changes.":`${diff>=0?"Up":"Down"} ${Math.abs(diff)}% on last week’s volume.`}</p>
   <h2>Last 8 weeks</h2>
   <figure class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly training volume, last 8 weeks">${bars}</svg>
@@ -291,7 +311,6 @@ function render(){
   $("#greet").textContent = state.profile ? "Hi, "+state.profile.name : "";
   if (!state.profile){ view.innerHTML = profileForm(true); return; }
   view.innerHTML = ({workout:workoutView, history:historyView, progress:progressView, profile:()=>profileForm(false)})[tab]();
-  tick();
 }
 
 /* ---------- events ---------- */
@@ -322,7 +341,7 @@ view.addEventListener("click", e=>{
     }
     case "discard": if (!confirm("Discard this workout? Logged sets will be lost.")) return; state.active=null; break;
     case "del": if (!confirm("Delete this workout from history?")) return; state.history=state.history.filter(w=>w.id!==id); flash("Workout deleted."); break;
-    case "wipe": if (!confirm("Delete your profile and all workouts from this browser?")) return; state={profile:null,history:[],active:null}; tab="workout"; break;
+    case "wipe": if (!confirm("Delete your profile and all workouts from this browser?")) return; state={profile:null,history:[],active:null,custom:[]}; tab="workout"; break;
     case "export": exportBackup(); return;
     case "import": $("#importFile").value=""; $("#importFile").click(); return;
   }
@@ -349,7 +368,7 @@ $("#tabs").addEventListener("click", e=>{ const b=e.target.closest("button"); if
 /* backup: export / import */
 function exportBackup(){
   const d = new Date(), day = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  const data = {app:"Setbook", version:1, exported:d.toISOString(), profile:state.profile, history:state.history, active:state.active};
+  const data = {app:"Setbook", version:1, exported:d.toISOString(), profile:state.profile, history:state.history, active:state.active, custom:state.custom};
   const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}));
   const a = document.createElement("a"); a.href=url; a.download=`setbook-backup-${day}.json`;
   document.body.appendChild(a); a.click(); a.remove();
@@ -370,39 +389,50 @@ $("#importFile").addEventListener("change", async e=>{
   if (!confirm(`Replace your profile and ${state.history.length} workout${state.history.length===1?"":"s"} with this backup (${n} workout${n===1?"":"s"})? Your current data will be lost.`)) return;
   const act = d.active;
   state = {profile:d.profile, history:d.history.map(w=>({...w, id:String(w.id)})),
-           active:(act && typeof act==="object" && typeof act.start==="number" && Array.isArray(act.exercises)) ? act : null};
+           active:(act && typeof act==="object" && typeof act.start==="number" && Array.isArray(act.exercises)) ? act : null,
+           custom:cleanCustom(d.custom)};
   save(); flash("Backup imported."); render();
 });
 
 /* picker */
 const picker = $("#picker");
 function renderList(){
-  const q = $("#q").value.trim().toLowerCase();
+  const raw = $("#q").value.trim().replace(/\s+/g," "), q = raw.toLowerCase();
   const have = new Set((state.active?.exercises||[]).map(e=>e.name));
-  $("#list").innerHTML = MUSCLES.map(m=>{
+  const btn = (n, extra="") => `<button class="pick" data-add="${esc(n)}" ${have.has(n)?"disabled":""}>${esc(n)}${have.has(n)?" <small>(added)</small>":""}</button>${extra}`;
+  const mine = state.custom.filter(c=>c.name.toLowerCase().includes(q));
+  let html = mine.length ? `<h3>My exercises</h3>` + mine.map(c=>`<div class="mine">${btn(c.name)}<button class="btn ghost small danger" data-rmcustom="${esc(c.name)}" aria-label="Remove ${esc(c.name)} from my exercises">Remove</button></div>`).join("") : "";
+  html += MUSCLES.map(m=>{
     const items = EX.filter(x=>x[1]===m && x[0].toLowerCase().includes(q));
-    return items.length ? `<h3>${m}</h3>` + items.map(([n])=>`<button class="pick" data-add="${esc(n)}" ${have.has(n)?"disabled":""}>${esc(n)}${have.has(n)?" <small>(added)</small>":""}</button>`).join("") : "";
-  }).join("") || '<p class="note">No exercise matches that search.</p>';
+    return items.length ? `<h3>${m}</h3>` + items.map(([n])=>btn(n)).join("") : "";
+  }).join("");
+  const exists = raw && (EX.some(x=>x[0].toLowerCase()===q) || state.custom.some(c=>c.name.toLowerCase()===q));
+  if (raw && !exists){
+    html += `<div class="addown"><p class="note">Not in the list? Add “${esc(raw.slice(0,40))}” as your own exercise, logged in:</p>
+      <div class="row backup"><button class="btn small" data-newcustom="reps">Reps</button><button class="btn small" data-newcustom="sec">Seconds</button></div></div>`;
+  }
+  $("#list").innerHTML = html || '<p class="note">Type a name to search, or to add your own exercise.</p>';
+}
+function addToWorkout(name){
+  const prev=lastFor(name), n = prev ? prev.length : 3;
+  state.active.exercises.push({name, sets:[...Array(n)].map(()=>({w:"",r:"",done:false}))});
 }
 function openPicker(){ $("#q").value=""; renderList(); picker.showModal(); }
 $("#q").addEventListener("input", renderList);
 $("#closePick").addEventListener("click", ()=>picker.close());
 $("#list").addEventListener("click", e=>{
+  const rm=e.target.closest("[data-rmcustom]");
+  if (rm){ state.custom=state.custom.filter(c=>c.name!==rm.dataset.rmcustom); save(); renderList(); flash("Removed from your exercises. Past workouts keep it."); return; }
+  const nc=e.target.closest("[data-newcustom]");
+  if (nc){
+    const name=$("#q").value.trim().replace(/\s+/g," ").slice(0,40); if (!name || !state.active) return;
+    state.custom.push({name, timed:nc.dataset.newcustom==="sec"});
+    addToWorkout(name); picker.close(); save(); render(); flash(`Added “${name}” to your exercises.`); return;
+  }
   const b=e.target.closest("[data-add]"); if (!b || !state.active) return;
-  const name=b.dataset.add, prev=lastFor(name);
-  const n = prev ? prev.length : 3;
-  state.active.exercises.push({name, sets:[...Array(n)].map(()=>({w:"",r:"",done:false}))});
+  addToWorkout(b.dataset.add);
   picker.close(); save(); render();
 });
-
-/* workout clock */
-function tick(){
-  const c=document.getElementById("clock"); if (!c || !state.active) return;
-  const s=Math.floor((Date.now()-state.active.start)/1000);
-  c.textContent = (s>=3600?Math.floor(s/3600)+":":"") + String(Math.floor(s/60)%60).padStart(s>=3600?2:1,"0") + ":" + String(s%60).padStart(2,"0");
-}
-setInterval(tick, 1000);
-
 render();
 
 /* offline support */

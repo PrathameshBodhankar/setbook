@@ -1,7 +1,7 @@
 /* Setbook service worker: precaches the app shell so it works offline.
    Paths are relative to this file, so it works at the site root or under /setbook/.
    Bump VERSION whenever index.html, the manifest or the icons change. */
-const VERSION = "setbook-v1";
+const VERSION = "setbook-v2";
 const ASSETS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
