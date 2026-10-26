@@ -3,176 +3,186 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Setbook</title>
+<title>Setbook · Workout log</title>
+<meta name="description" content="Setbook is a free workout log. Record the weight and reps of every set, and track your records and weekly progress. No account, data stays on your device.">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2340B8">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Kalam:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#FBFCFE; --rule:#DCE4F0; --margin:#E4574B; --ink:#2340B8; --text:#1C2230;
-  --pencil:#5F6878; --hi:#FFF07A; --line:#C3CEE0; --danger:#B9332A;
+  --bg:#F4F5F8; --card:#FFFFFF; --border:#E2E5EB; --text:#151821; --muted:#5B6372;
+  --accent:#2340B8; --accent-ink:#FFFFFF; --soft:#E9EDFB; --done:#E6F5EC; --done-ink:#17733A; --on-done:#FFFFFF;
+  --danger:#B42318; --warm:#A15C07; --gold-bg:#FFF3D1; --gold:#7A5200;
+  --shadow:0 1px 2px rgba(16,24,40,.05);
   color-scheme:light; box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){:root{
-  --paper:#161B26; --rule:#222A3A; --margin:#D9635A; --ink:#A3B6FF; --text:#E7EAF1;
-  --pencil:#9AA3B4; --hi:rgba(255,226,80,.22); --line:#34405A; --danger:#FF8378; color-scheme:dark;
+  --bg:#0F1117; --card:#181B23; --border:#2A2F3A; --text:#E9ECF2; --muted:#9BA3B2;
+  --accent:#8EA4FF; --accent-ink:#0F1117; --soft:#1F2744; --done:#13301F; --done-ink:#62D394; --on-done:#0F1117;
+  --danger:#FF8A80; --warm:#F2B25C; --gold-bg:#3A2E10; --gold:#F7D47A; --shadow:none; color-scheme:dark;
 }}
 *,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+input[type=number]{-moz-appearance:textfield; appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none; margin:0}
+body.welcome .wrap{padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
 html,body{margin:0}
-body{
-  background:var(--paper);
-  background-image:repeating-linear-gradient(to bottom,transparent 0 27px,var(--rule) 27px 28px);
-  color:var(--text); font:17px/28px "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
-  min-height:100vh;
-}
-body::after{ /* the notebook margin line */
-  content:""; position:fixed; top:0; bottom:0; width:2px; background:var(--margin); opacity:.65;
-  left:calc(max(0px, 50% - 340px) + 40px); pointer-events:none;
-}
-.wrap{max-width:680px; margin:0 auto; padding:14px 20px 120px 60px}
-h1,h2,h3{font-family:Kalam,"Comic Sans MS","Bradley Hand",cursive; color:var(--ink); margin:0}
-h1{font-size:34px; line-height:56px}
-h2{font-size:26px; line-height:56px; margin-top:14px}
-h3{font-size:21px; line-height:28px}
-.top{display:flex; justify-content:space-between; align-items:baseline; gap:12px}
-#greet,.note,.meta,.prev,figcaption{color:var(--pencil)}
-.note{margin:0 0 14px}
-.row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
-.row.end{justify-content:flex-end; margin-top:28px}
-.row.backup{justify-content:flex-start; margin:0 0 28px}
-.btn{
-  font:inherit; font-weight:700; color:var(--ink); background:transparent; cursor:pointer;
-  border:2px solid var(--ink); border-radius:10px; min-height:44px; padding:0 18px;
-}
-.btn.primary{background:var(--ink); color:var(--paper)}
-.btn.big{width:100%; min-height:56px; font-size:19px; margin:14px 0}
-.btn.ghost{border-color:transparent; padding:0 8px}
-.btn.small{min-height:36px; font-size:15px}
-.btn.danger{color:var(--danger)} .btn.danger:not(.ghost){border-color:var(--danger)}
-button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--ink); outline-offset:2px}
-input,select{
-  font:inherit; color:var(--text); background:transparent; border:0; border-bottom:2px solid var(--line);
-  border-radius:0; min-height:40px; width:100%; padding:0 4px;
-}
-input:focus{border-bottom-color:var(--ink)}
-select{background:var(--paper)}
-.form{display:grid; gap:14px; max-width:420px}
-.form label{display:grid; font-weight:700}
-.form .btn{justify-self:start; margin-top:14px}
-.title{font-family:Kalam,cursive; font-size:26px; color:var(--ink); flex:1; min-width:180px; border-bottom-color:transparent}
-.ex{margin:28px 0}
-.sets{margin:6px 0}
-.sh,.set{display:grid; grid-template-columns:30px 1fr 72px 64px 44px; gap:8px; align-items:center}
-.sh{font-size:14px; color:var(--pencil); font-weight:700}
-.set{min-height:48px; border-radius:6px; padding:0 4px; margin:0 -4px}
-.set input{text-align:center; font-variant-numeric:tabular-nums}
-.set.done{background:linear-gradient(100deg,transparent 0 2%,var(--hi) 3% 97%,transparent 98%)}
-.prev{font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.chk{
-  width:40px; height:40px; border-radius:50%; border:2px solid var(--line); background:transparent;
-  color:transparent; font-size:20px; font-weight:700; cursor:pointer;
-}
-.chk[aria-pressed="true"]{border-color:var(--ink); color:var(--ink)}
-.entry{border-bottom:1px solid var(--line); padding:6px 0}
-.entry summary{cursor:pointer; display:flex; flex-wrap:wrap; gap:0 12px; align-items:baseline}
-.entry ul{margin:6px 0 10px; padding-left:20px}
-.meta{font-size:15px}
-.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:6px 0 14px}
-.stats b{display:block; font-family:Kalam,cursive; font-size:28px; line-height:42px; color:var(--ink)}
-.stats span{font-size:15px; color:var(--pencil)}
+body{background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased}
+.wrap{max-width:640px; margin:0 auto; padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(96px + env(safe-area-inset-bottom,0px))}
+h1,h2,h3{margin:0; color:var(--text); letter-spacing:-.01em}
+h1{font-size:20px; line-height:1.2}
+h2{font-size:20px; line-height:1.3; margin:28px 0 10px}
+h3{font-size:17px; line-height:1.35}
+p{margin:0 0 10px}
+.top{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:4px 0 8px}
+.brand{display:flex; align-items:center; gap:10px}
+.brand img{width:34px; height:34px; border-radius:9px}
+.tag{margin:0; font-size:13px; color:var(--muted); line-height:1.2}
+#greet{font-size:14px; color:var(--muted)}
+.note,.meta,.prev,figcaption,.hint{color:var(--muted)}
+.note{margin:0 0 12px}
+.meta{font-size:14px}
+.hint{font-size:14px; line-height:1.45; margin:8px 0 0}
+.card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin:12px 0; box-shadow:var(--shadow)}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.row.end{justify-content:flex-end; margin-top:20px}
+.row.backup{justify-content:flex-start; margin:8px 0 0; gap:8px}
+.btn{font:inherit; font-weight:600; color:var(--accent); background:var(--soft); border:1px solid transparent; cursor:pointer;
+  border-radius:10px; min-height:44px; padding:0 16px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px}
+.btn.primary{background:var(--accent); color:var(--accent-ink)}
+.btn.big{width:100%; min-height:52px; font-size:17px; margin:6px 0}
+.btn.ghost{background:transparent; padding:0 10px}
+.btn.small{min-height:36px; font-size:14px; padding:0 12px}
+.btn.danger{color:var(--danger)} .btn.danger:not(.ghost){background:transparent; border-color:var(--danger)}
+.btn:disabled{opacity:.4; cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+input,select,textarea{font:inherit; color:var(--text); background:var(--card); border:1px solid var(--border); border-radius:10px; min-height:44px; width:100%; padding:0 12px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent); outline:none}
+textarea{padding:10px 12px; min-height:80px; resize:vertical}
+.form{display:grid; gap:14px}
+.form label{display:grid; gap:6px; font-weight:600; font-size:15px}
+.form .btn{margin-top:4px}
+.opt{border-top:1px solid var(--border); padding-top:12px}
+.opt summary{cursor:pointer; color:var(--accent); font-weight:600; font-size:15px}
+.opt[open] summary{margin-bottom:12px}
+.opt .form{gap:14px}
+/* welcome */
+.hero{padding:8px 0 4px}
+.hero h2{font-size:26px; line-height:1.25; margin:12px 0 8px}
+.hero p{color:var(--muted); font-size:17px}
+.feat{list-style:none; padding:0; margin:16px 0 0; display:grid; gap:10px}
+.feat li{display:flex; gap:12px; align-items:flex-start; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px}
+.feat .ic{flex:none; width:32px; height:32px; border-radius:8px; background:var(--soft); color:var(--accent); display:grid; place-items:center}
+.feat b{display:block}
+.feat span{color:var(--muted); font-size:15px}
+.steps{margin:6px 0 0; padding-left:22px; display:grid; gap:6px}
+.steps li::marker{color:var(--accent); font-weight:700}
+/* workout */
+.title{font-size:20px; font-weight:700; border-color:transparent; background:transparent; padding:0 4px; margin:0 -4px}
+.title:focus{background:var(--card)}
+.datein{max-width:180px; margin-left:8px; min-height:38px}
+.ex{padding:14px 12px}
+.exhead{display:flex; align-items:center; justify-content:space-between; gap:4px 8px; flex-wrap:wrap; margin-bottom:6px}
+.exname,.linkish{font:inherit; color:var(--text); background:none; border:0; padding:0; cursor:pointer; text-align:left}
+.exname{font-size:17px; font-weight:700}
+.exname::after{content:" ›"; color:var(--muted); font-weight:400}
+.linkish{color:var(--accent); font-weight:600}
+.ctl{display:flex; gap:2px; flex-wrap:wrap}
+.ctl .btn{padding:0 8px; color:var(--muted)}
+.ctl .btn.danger{color:var(--danger)}
+.sets{margin:4px 0 6px}
+.sh,.set{display:grid; grid-template-columns:34px 1fr 76px 64px 44px; gap:8px; align-items:center}
+.sh{font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); padding:0 6px 4px}
+.set{min-height:52px; border-radius:10px; padding:0 6px}
+.set + .set{margin-top:4px}
+.set input{text-align:center; font-variant-numeric:tabular-nums; padding:0 4px; min-height:42px}
+.set.done{background:var(--done)}
+.set.done input{background:transparent; border-color:transparent; font-weight:600}
+.prev{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums}
+.setno{font:inherit; font-weight:700; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:8px; width:30px; height:30px; padding:0; cursor:pointer}
+.set.warm .setno{color:var(--warm); border-color:var(--warm)}
+.set.warm input{color:var(--muted)}
+.chk{width:40px; height:40px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:18px; font-weight:700; cursor:pointer}
+.chk[aria-pressed="true"]{background:var(--done-ink); border-color:var(--done-ink); color:var(--on-done)}
+.unit{font:inherit; font-size:12px; font-weight:700; color:var(--accent); background:none; border:0; padding:0; cursor:pointer; text-align:left; text-transform:uppercase; letter-spacing:.04em}
+.exnote{font-size:15px; margin-top:8px; min-height:40px}
+.addex{width:100%; min-height:52px; border:1.5px dashed var(--accent); background:transparent; margin:12px 0}
+/* lists */
+.entry{padding:0; overflow:hidden}
+.entry summary{cursor:pointer; padding:14px 16px; display:flex; flex-wrap:wrap; gap:2px 10px; align-items:center; list-style:none}
+.entry summary::-webkit-details-marker{display:none}
+.entry summary::after{content:"›"; margin-left:auto; color:var(--muted); font-size:20px; transition:transform .15s}
+.entry[open] summary::after{transform:rotate(90deg)}
+.entry .body{padding:0 16px 14px; border-top:1px solid var(--border)}
+.lines{list-style:none; padding:0; margin:10px 0}
+.lines li{padding:6px 0; border-bottom:1px solid var(--border)}
+.lines li:last-child{border-bottom:0}
+.warmtxt{color:var(--warm)}
+.wnote{color:var(--muted); font-style:italic; margin:4px 0; font-size:15px}
+.badge{display:inline-block; background:var(--gold-bg); color:var(--gold); font-size:12px; font-weight:700; border-radius:999px; padding:0 8px; line-height:22px; white-space:nowrap}
+.badge.blue{background:var(--soft); color:var(--accent)}
+.routine{display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--border)}
+.routine:last-child{border-bottom:0}
+.routine .pick{flex:1; border:0}
+.list{padding:4px 16px}
+/* progress */
+.seg{display:flex; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; margin:4px 0 12px}
+.seg .btn{flex:1; min-height:38px; font-size:14px; padding:0 6px; background:transparent; color:var(--muted)}
+.seg .btn[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:0 0 12px}
+.stats div,.top3 div{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:var(--shadow)}
+.stats b,.top3 b{display:block; font-size:22px; line-height:1.2; font-variant-numeric:tabular-nums}
+.stats span,.top3 span{font-size:13px; color:var(--muted)}
+.top3{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:8px 0 12px}
 .chart{margin:0}
 .chart svg{width:100%; height:auto; display:block}
-.bar{fill:var(--ink); opacity:.35} .bar.now{opacity:1}
-.lbl{font-size:10px; fill:var(--pencil)} .cnt{font-size:11px; font-weight:700; fill:var(--ink)}
-figcaption{font-size:14px; line-height:22px; margin-top:6px}
-.tabs{
-  position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center;
-  background:var(--paper); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom,0px);
-}
-.tabs button{
-  flex:1; max-width:170px; font:inherit; font-weight:700; color:var(--pencil); background:none; border:0;
-  min-height:58px; cursor:pointer; border-top:3px solid transparent;
-}
-.tabs button[aria-current="page"]{color:var(--ink); border-top-color:var(--ink)}
-dialog{
-  width:min(560px, calc(100vw - 24px)); max-height:82vh; padding:14px 20px 20px; color:var(--text);
-  background:var(--paper); border:2px solid var(--ink); border-radius:14px;
-}
-dialog::backdrop{background:rgba(10,15,30,.45)}
-.ph{display:flex; justify-content:space-between; align-items:center}
-#q{margin:4px 0 10px}
-#list h3{margin-top:14px}
-.pick{
-  display:block; width:100%; text-align:left; font:inherit; color:var(--text); background:none;
-  border:0; border-bottom:1px solid var(--rule); min-height:44px; cursor:pointer; padding:0 4px;
-}
-.pick:hover:not(:disabled){color:var(--ink)}
-.pick:disabled{color:var(--pencil); cursor:default}
-.mine{display:flex; align-items:center; gap:8px} .mine .pick{flex:1}
-.addown{margin-top:14px}
-#toast{
-  position:fixed; left:50%; bottom:calc(76px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
-  background:var(--text); color:var(--paper); padding:8px 16px; border-radius:10px; font-weight:700;
-  opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw; text-align:center;
-}
-#toast.show{opacity:1}
-@media (max-width:480px){
-  body::after{left:24px}
-  .wrap{padding-left:38px; padding-right:14px}
-  .sh,.set{grid-template-columns:24px 1fr 62px 54px 42px; gap:6px}
-}
-@media (prefers-reduced-motion:reduce){#toast{transition:none}}
-.seg{display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 14px}
-.seg .btn{min-height:36px; font-size:15px; padding:0 12px}
-.seg .btn[aria-pressed="true"]{background:var(--ink); color:var(--paper)}
-.exhead{display:flex; align-items:center; justify-content:space-between; gap:4px 8px; flex-wrap:wrap}
-.exname,.linkish{font:inherit; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; text-align:left;
-  text-decoration:underline dotted; text-underline-offset:4px}
-.exname{font-family:Kalam,"Comic Sans MS",cursive; font-size:21px; line-height:28px; font-weight:700}
-.ctl{display:flex; gap:2px; flex-wrap:wrap}
-.ctl .btn{padding:0 8px}
-.setno{font:inherit; font-weight:700; color:var(--text); background:none; border:0; padding:0; cursor:pointer; min-height:40px; text-align:left}
-.set.warm .setno{color:var(--margin)}
-.set.warm input{color:var(--pencil)}
-.unit{font:inherit; font-size:14px; font-weight:700; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; text-align:left}
-textarea{font:inherit; color:var(--text); background:transparent; border:2px solid var(--line); border-radius:8px; width:100%; padding:4px 8px; min-height:64px; resize:vertical}
-textarea:focus{border-color:var(--ink)}
-.exnote{font-size:15px; margin:2px 0 0}
-.badge{display:inline-block; background:var(--hi); color:var(--text); font-size:13px; font-weight:700; border-radius:6px; padding:0 6px; line-height:22px; white-space:nowrap}
-.routine{display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--rule)}
-.routine .pick{flex:1; border:0}
-.lines{list-style:none; padding:0; margin:6px 0 10px}
-.lines li{margin:2px 0}
-.warmtxt{color:var(--pencil); font-style:italic}
-.wnote{color:var(--pencil); font-style:italic; margin:4px 0}
-.datein{max-width:190px}
+.bar{fill:var(--accent); opacity:.35} .bar.now{opacity:1}
+.lbl{font-size:10px; fill:var(--muted)} .cnt{font-size:11px; font-weight:700; fill:var(--text)}
+figcaption{font-size:13px; line-height:1.45; margin-top:8px}
+/* tab bar */
+.tabs{position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; background:var(--card); border-top:1px solid var(--border); padding-bottom:env(safe-area-inset-bottom,0px); z-index:5}
+.tabs button{flex:1; max-width:160px; font:inherit; font-size:12px; font-weight:600; color:var(--muted); background:none; border:0; min-height:60px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px}
+.tabs svg{width:22px; height:22px}
+.tabs button[aria-current="page"]{color:var(--accent)}
+/* dialogs */
+dialog{width:min(560px, calc(100vw - 24px)); max-height:84vh; padding:16px; color:var(--text); background:var(--card); border:0; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(10,15,30,.5)}
+.ph{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+.ph h2{margin:0}
+#q{margin:0 0 6px}
+#list h3{margin:16px 0 4px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.pick{display:block; width:100%; text-align:left; font:inherit; color:var(--text); background:none; border:0; border-bottom:1px solid var(--border); min-height:46px; cursor:pointer; padding:0 4px}
+.pick small{color:var(--muted)}
+.pick:hover:not(:disabled){color:var(--accent)}
+.pick:disabled{color:var(--muted); cursor:default}
+.mine{display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--border)} .mine .pick{flex:1; border:0}
 .addfirst{margin:4px 0 8px}
-.addfirst .btn{width:100%; text-align:left}
-.top3{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:6px 0 14px}
-.top3 b{display:block; font-family:Kalam,cursive; font-size:24px; line-height:36px; color:var(--ink)}
-.top3 span{font-size:15px; color:var(--pencil)}
-.hint{font-size:14px; line-height:22px; color:var(--pencil); margin:6px 0 0}
+.addfirst .btn{width:100%; justify-content:flex-start}
+#toast{position:fixed; left:50%; bottom:calc(76px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--text); color:var(--bg);
+  padding:10px 16px; border-radius:12px; font-weight:600; font-size:15px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:min(90vw,480px); text-align:center; z-index:10}
+#toast.show{opacity:1}
+@media (max-width:420px){
+  .sh,.set{grid-template-columns:32px 1fr 64px 54px 42px; gap:6px}
+  .stats b{font-size:19px}
+}
+@media (prefers-reduced-motion:reduce){#toast,.entry summary::after{transition:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top"><h1>Setbook</h1><span id="greet"></span></header>
+  <header class="top"><div class="brand"><img src="icon-192.png" alt=""><div><h1>Setbook</h1><p class="tag">Workout log</p></div></div><span id="greet"></span></header>
   <main id="view"></main>
 </div>
 <nav class="tabs" id="tabs" aria-label="Sections">
-  <button data-tab="workout">Workout</button>
-  <button data-tab="history">History</button>
-  <button data-tab="progress">Progress</button>
-  <button data-tab="profile">Profile</button>
+  <button data-tab="workout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>Log</button>
+  <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>History</button>
+  <button data-tab="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>Progress</button>
+  <button data-tab="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profile</button>
 </nav>
 <dialog id="picker" aria-labelledby="pickTitle">
   <div class="ph"><h2 id="pickTitle">Add exercise</h2><button class="btn ghost small" id="closePick">Close</button></div>
-  <input id="q" type="search" placeholder="Search or add an exercise" aria-label="Search or add an exercise" enterkeyhint="go" autocomplete="off">
+  <input id="q" type="search" placeholder="Search, or type a new exercise" aria-label="Search or add an exercise" enterkeyhint="go" autocomplete="off">
   <div id="list"></div>
 </dialog>
 <dialog id="exdlg" aria-labelledby="exTitle">
@@ -333,59 +343,81 @@ function exStats(name){
 }
 
 /* ---------- views ---------- */
+const ICON = {
+  log:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>',
+  chart:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>',
+  lock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+};
+function profileFields(p, first){
+  const u = p.unit || "kg", wShown = p.weight==="" || p.weight==null ? "" : (u==="lb" ? Math.round(p.weight*LB*10)/10 : p.weight);
+  const extra = `<label><span>Bodyweight (<span id="bwU">${u}</span>)</span><input name="weight" id="bwIn" type="number" inputmode="decimal" step="0.1" min="0" value="${esc(wShown)}"></label>
+    <label>Height (cm)<input name="height" type="number" inputmode="numeric" min="0" value="${esc(p.height)}"></label>
+    <label>Main goal<select name="goal">${["Build strength","Build muscle","Lose fat","Stay active"].map(g=>`<option ${g===p.goal?"selected":""}>${g}</option>`).join("")}</select></label>`;
+  return `<form id="pf" class="form" data-first="${first?1:0}">
+    <label>Your name<input name="name" required maxlength="40" value="${esc(p.name)}" autocomplete="given-name" placeholder="e.g. Alex"></label>
+    <label>Weights in<select name="unit" id="unitSel"><option value="kg" ${u==="kg"?"selected":""}>Kilograms (kg)</option><option value="lb" ${u==="lb"?"selected":""}>Pounds (lb)</option></select></label>
+    ${first ? `<details class="opt"><summary>Add bodyweight, height and goal (optional)</summary><div class="form">${extra}</div></details>` : extra}
+    <button class="btn primary ${first?"big":""}" type="submit">${first?"Start logging":"Save profile"}</button>
+  </form>`;
+}
 function profileForm(first){
   const p = state.profile || {name:"",weight:"",height:"",goal:"Build strength",unit:"kg"};
-  const u = p.unit || "kg", wShown = p.weight==="" || p.weight==null ? "" : (u==="lb" ? Math.round(p.weight*LB*10)/10 : p.weight);
-  return `<h2>${first?"Set up your profile":"Profile"}</h2>
-  ${first?'<p class="note">Everything stays on this device. Nothing is uploaded.</p>':""}
-  <form id="pf" class="form" data-first="${first?1:0}">
-    <label>Name<input name="name" required maxlength="40" value="${esc(p.name)}" autocomplete="given-name"></label>
-    <label>Units<select name="unit" id="unitSel"><option value="kg" ${u==="kg"?"selected":""}>kg</option><option value="lb" ${u==="lb"?"selected":""}>lb</option></select></label>
-    <label><span>Bodyweight (<span id="bwU">${u}</span>)</span><input name="weight" id="bwIn" type="number" inputmode="decimal" step="0.1" min="0" value="${esc(wShown)}"></label>
-    <label>Height (cm)<input name="height" type="number" inputmode="numeric" min="0" value="${esc(p.height)}"></label>
-    <label>Main goal<select name="goal">${["Build strength","Build muscle","Lose fat","Stay active"].map(g=>`<option ${g===p.goal?"selected":""}>${g}</option>`).join("")}</select></label>
-    <button class="btn primary" type="submit">${first?"Create profile":"Save profile"}</button>
-  </form>
-  ${first?"":`<h2>Your data</h2>
-  <p class="note">${plural(state.history.length,"workout")}, ${plural(state.routines.length,"routine")} and ${plural(state.custom.length,"custom exercise")} saved in this browser. Clearing your browser data erases them.</p>
-  <p class="note">Export a backup now and then. You can import it here or on another device.</p>
-  <div class="row backup"><button class="btn" data-act="export">Export backup</button><button class="btn" data-act="import">Import backup</button></div>
-  <button class="btn danger" data-act="wipe">Delete all data</button>`}`;
+  if (first) return `<section class="hero">
+      <h2>Track your workouts, set by set.</h2>
+      <p>Setbook is a simple workout log. Write down the weight and reps of every set at the gym, then see your records and progress over time.</p>
+      <ul class="feat">
+        <li><span class="ic">${ICON.log}</span><div><b>Log every set in seconds</b><span>Pick an exercise, type weight × reps, tick it off. Last time’s numbers are shown next to each set.</span></div></li>
+        <li><span class="ic">${ICON.chart}</span><div><b>See your progress</b><span>Personal records, full history per exercise, and weekly volume.</span></div></li>
+        <li><span class="ic">${ICON.lock}</span><div><b>Free and private</b><span>No account and no ads. Your data stays on this device.</span></div></li>
+      </ul>
+    </section>
+    <div class="card"><h3 style="margin-bottom:12px">Get started</h3>${profileFields(p, true)}</div>`;
+  return `<h2>Profile</h2>
+  <div class="card">${profileFields(p, false)}</div>
+  <h2>Your data</h2>
+  <div class="card">
+    <p>${plural(state.history.length,"workout")}, ${plural(state.routines.length,"routine")} and ${plural(state.custom.length,"custom exercise")} are saved in this browser only.</p>
+    <p class="note">Clearing your browser data erases them. Export a backup now and then; you can import it here or on another device.</p>
+    <div class="row backup"><button class="btn" data-act="export">Export backup</button><button class="btn" data-act="import">Import backup</button></div>
+  </div>
+  <button class="btn ghost danger" data-act="wipe">Delete all data</button>`;
 }
 
 function entry(w, full){
-  const prs = prsOf(w);
-  return `<details class="entry"><summary><strong>${esc(w.name)}</strong>
-    <span class="meta">${fmtDate(w.start)}, ${fmtVol(vol(w))}</span>${prs.length?` <span class="badge">${prs.length===1?"New PR":prs.length+" PRs"}</span>`:""}</summary>
+  const prs = prsOf(w), nSets = w.exercises.reduce((a,e)=>a+working(e.sets).length,0);
+  return `<details class="entry card"><summary><div style="flex:1;min-width:0"><strong>${esc(w.name)}</strong> ${prs.length?`<span class="badge">🏆 ${prs.length===1?"New PR":prs.length+" PRs"}</span>`:""}
+    <div class="meta">${fmtDate(w.start)} · ${plural(w.exercises.length,"exercise")} · ${plural(nSets,"set")} · ${fmtVol(vol(w))}</div></div></summary>
+    <div class="body">
     ${w.note?`<p class="wnote">${esc(w.note)}</p>`:""}
-    <ul class="lines">${w.exercises.map(e=>`<li><button class="linkish" data-act="exinfo" data-name="${esc(e.name)}"><b>${esc(e.name)}</b></button>
-      ${e.sets.map(s=>s.warm?`<span class="warmtxt">w ${setTxt(s,e.name)}</span>`:setTxt(s,e.name)).join(", ")}
+    <ul class="lines">${w.exercises.map(e=>`<li><button class="linkish" data-act="exinfo" data-name="${esc(e.name)}">${esc(e.name)}</button>
+      <div>${e.sets.map(s=>s.warm?`<span class="warmtxt">W ${setTxt(s,e.name)}</span>`:setTxt(s,e.name)).join(" · ")}</div>
       ${e.note?`<div class="wnote">${esc(e.note)}</div>`:""}</li>`).join("")}</ul>
     ${prs.length?`<p class="note">🏆 ${prs.map(esc).join("<br>🏆 ")}</p>`:""}
-    <div class="row backup">${full?`<button class="btn ghost small" data-act="edit" data-id="${esc(w.id)}">Edit</button>`:""}
-      <button class="btn ghost small" data-act="saveroutine" data-id="${esc(w.id)}">Save as routine</button>
+    <div class="row backup">${full?`<button class="btn small" data-act="edit" data-id="${esc(w.id)}">Edit</button>`:""}
+      <button class="btn small" data-act="saveroutine" data-id="${esc(w.id)}">Save as routine</button>
       ${full?`<button class="btn ghost small danger" data-act="del" data-id="${esc(w.id)}">Delete</button>`:""}</div>
+    </div>
   </details>`;
 }
 
 function exBlock(e,i,n){
   const editing = state.active.editingId;
   const prev = lastFor(e.name, editing), t = isTime(e.name), c = customOf(e.name);
-  return `<section class="ex">
+  return `<section class="ex card">
     <div class="exhead"><button class="exname" data-act="exinfo" data-name="${esc(e.name)}" aria-label="${esc(e.name)}: history and records">${esc(e.name)}</button>
-      <div class="ctl"><button class="btn ghost small" data-act="up" data-i="${i}" ${i===0?"disabled":""} aria-label="Move ${esc(e.name)} up">↑</button><button class="btn ghost small" data-act="down" data-i="${i}" ${i===n-1?"disabled":""} aria-label="Move ${esc(e.name)} down">↓</button><button class="btn ghost small" data-act="rmex" data-i="${i}" aria-label="Remove ${esc(e.name)}">Remove</button></div></div>
+      <div class="ctl"><button class="btn ghost small" data-act="up" data-i="${i}" ${i===0?"disabled":""} aria-label="Move ${esc(e.name)} up">↑</button><button class="btn ghost small" data-act="down" data-i="${i}" ${i===n-1?"disabled":""} aria-label="Move ${esc(e.name)} down">↓</button><button class="btn ghost small danger" data-act="rmex" data-i="${i}" aria-label="Remove ${esc(e.name)}">Remove</button></div></div>
     <div class="sets">
-      <div class="sh"><span>Set</span><span>Previous</span><span>${unit()}</span>${c?`<button class="unit" data-act="unit" data-i="${i}" aria-label="Logged in ${t?"seconds":"reps"}. Switch to ${t?"reps":"seconds"}">${t?"sec":"reps"} ⇄</button>`:`<span>${t?"sec":"reps"}</span>`}<span></span></div>
+      <div class="sh"><span>Set</span><span>Last time</span><span>${unit()}</span>${c?`<button class="unit" data-act="unit" data-i="${i}" aria-label="Logged in ${t?"seconds":"reps"}. Switch to ${t?"reps":"seconds"}">${t?"sec":"reps"} ⇄</button>`:`<span>${t?"sec":"reps"}</span>`}<span>Done</span></div>
       ${e.sets.map((s,j)=>{ const p = prev && prev[j]; return `<div class="set ${s.done?"done":""} ${s.warm?"warm":""}">
         <button class="setno" data-act="warm" data-i="${i}" data-j="${j}" aria-label="Set ${j+1}${s.warm?", warm-up":""}. Tap to ${s.warm?"make it a working set":"mark as warm-up"}">${s.warm?"W":j+1}</button>
-        <span class="prev">${p?(p.w?fmtW(p.w)+" × ":"")+p.r:"–"}</span>
-        <input type="number" inputmode="decimal" step="any" min="0" data-f="w" data-i="${i}" data-j="${j}" value="${s.w===""||s.w==null?"":toU(s.w)}" placeholder="${p&&p.w?toU(p.w):""}" aria-label="Set ${j+1} weight in ${unit()}">
-        <input type="number" inputmode="numeric" min="0" data-f="r" data-i="${i}" data-j="${j}" value="${esc(s.r)}" placeholder="${p?esc(p.r):""}" aria-label="Set ${j+1} ${t?"seconds":"reps"}">
+        <span class="prev">${p?(p.w?fmtW(p.w)+" × ":"")+p.r+(t?"s":""):"–"}</span>
+        <input type="number" inputmode="decimal" step="any" min="0" data-f="w" data-i="${i}" data-j="${j}" value="${s.w===""||s.w==null?"":toU(s.w)}" placeholder="${p&&p.w?toU(p.w):"0"}" aria-label="Set ${j+1} weight in ${unit()}">
+        <input type="number" inputmode="numeric" min="0" data-f="r" data-i="${i}" data-j="${j}" value="${esc(s.r)}" placeholder="${p?esc(p.r):"0"}" aria-label="Set ${j+1} ${t?"seconds":"reps"}">
         <button class="chk" data-act="done" data-i="${i}" data-j="${j}" aria-pressed="${!!s.done}" aria-label="Mark set ${j+1} done">✓</button>
       </div>`; }).join("")}
     </div>
-    <div class="row"><button class="btn ghost small" data-act="addset" data-i="${i}">Add set</button></div>
-    <input class="exnote" data-f="exnote" data-i="${i}" value="${esc(e.note)}" placeholder="Note for ${esc(e.name)} (optional)" aria-label="Note for ${esc(e.name)}" maxlength="200">
+    <button class="btn ghost small" data-act="addset" data-i="${i}">+ Add set</button>
+    <input class="exnote" data-f="exnote" data-i="${i}" value="${esc(e.note)}" placeholder="Note (optional)" aria-label="Note for ${esc(e.name)}" maxlength="200">
   </section>`;
 }
 
@@ -393,32 +425,38 @@ function workoutView(){
   const a = state.active;
   if (!a){
     const last = state.history[0], wk = weekStats(0);
+    const intro = !state.history.length ? `<div class="card"><h3>How it works</h3>
+        <ol class="steps"><li>Tap <b>Start a workout</b>.</li><li>Add an exercise and type the weight and reps for each set.</li><li>Tap <b>✓</b> as you finish each set, then <b>Finish workout</b>.</li></ol>
+        <p class="hint">Next time, your previous numbers appear next to every set so you know what to beat.</p></div>` : "";
     return `<h2>Today</h2>
-    <button class="btn primary big" data-act="start">Start empty workout</button>
-    ${last?`<button class="btn big" data-act="repeat">Repeat last: ${esc(last.name)}</button>`:""}
-    <p class="note">${plural(wk.count,"workout")} this week${wk.count?", "+fmtVol(wk.vol)+" lifted":""}.</p>
+    ${intro}
+    <button class="btn primary big" data-act="start">Start a workout</button>
+    ${last?`<button class="btn big" data-act="repeat">Repeat “${esc(last.name)}”</button>`:""}
+    ${state.history.length?`<p class="note" style="margin-top:8px">${plural(wk.count,"workout")} this week${wk.count?" · "+fmtVol(wk.vol)+" lifted":""}.</p>`:""}
     <h2>Routines</h2>
-    ${state.routines.length ? state.routines.map(r=>`<div class="routine"><button class="pick" data-act="startroutine" data-id="${esc(r.id)}">${esc(r.name)} <small>· ${plural(r.exercises.length,"exercise")}</small></button>
-      <button class="btn ghost small" data-act="renroutine" data-id="${esc(r.id)}" aria-label="Rename ${esc(r.name)}">Rename</button><button class="btn ghost small danger" data-act="delroutine" data-id="${esc(r.id)}" aria-label="Delete ${esc(r.name)}">Delete</button></div>`).join("")
-      : '<p class="note">No routines yet. Open a finished workout in History, or under Last time, and choose Save as routine.</p>'}
-    ${last?`<h2>Last time</h2>${entry(last,false)}`:'<p class="note">Your first workout shows up here once you finish it.</p>'}`;
+    ${state.routines.length ? `<div class="card list">${state.routines.map(r=>`<div class="routine"><button class="pick" data-act="startroutine" data-id="${esc(r.id)}"><b>${esc(r.name)}</b> <small>· ${plural(r.exercises.length,"exercise")}</small></button>
+      <button class="btn ghost small" data-act="renroutine" data-id="${esc(r.id)}" aria-label="Rename ${esc(r.name)}">Rename</button><button class="btn ghost small danger" data-act="delroutine" data-id="${esc(r.id)}" aria-label="Delete ${esc(r.name)}">Delete</button></div>`).join("")}</div>`
+      : '<p class="note">Routines are workouts you repeat, like “Push day”. After you finish a workout, open it and tap <b>Save as routine</b>.</p>'}
+    ${last?`<h2>Last workout</h2>${entry(last,false)}`:""}`;
   }
   const date = a.date || ymd(a.start);
-  return `${a.editingId?'<p class="note"><span class="badge">Editing</span> Changes are saved to History when you choose Save changes.</p>':""}
-    <div class="row"><input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name" maxlength="60"></div>
-    <label class="note">Date <input class="datein" type="date" data-f="date" value="${date}" max="${ymd(Date.now())}" aria-label="Workout date"></label>
-    ${a.exercises.length?'<p class="hint">Tap a set number to mark a warm-up (W). Warm-ups don’t count toward volume or records. Tap an exercise name for its history.</p>':""}
-    ${a.exercises.map((e,i)=>exBlock(e,i,a.exercises.length)).join("") || '<p class="note">Add your first exercise to start logging sets.</p>'}
-    <button class="btn" data-act="pick">Add exercise</button>
-    <h3 style="margin-top:28px">Workout notes</h3>
-    <textarea data-f="note" placeholder="How did it feel? Anything to remember next time?" aria-label="Workout notes" maxlength="1000">${esc(a.note)}</textarea>
+  return `${a.editingId?'<p class="note" style="margin-top:12px"><span class="badge blue">Editing</span> Changes are saved when you tap Save changes.</p>':""}
+    <div class="card" style="margin-top:12px">
+      <input class="title" data-f="name" value="${esc(a.name)}" aria-label="Workout name" maxlength="60">
+      <label class="note" style="display:flex;align-items:center;margin:8px 0 0">Date<input class="datein" type="date" data-f="date" value="${date}" max="${ymd(Date.now())}" aria-label="Workout date"></label>
+    </div>
+    ${a.exercises.length?'<p class="hint">Type weight and reps, then tap ✓ when the set is done. Tap a set number to mark a warm-up (W); warm-ups don’t count toward volume or records.</p>':'<p class="note" style="margin-top:12px">Add your first exercise to start logging sets.</p>'}
+    ${a.exercises.map((e,i)=>exBlock(e,i,a.exercises.length)).join("")}
+    <button class="btn addex" data-act="pick">+ Add exercise</button>
+    <label class="form" style="margin-top:8px"><span style="font-weight:600">Workout notes (optional)</span>
+    <textarea data-f="note" placeholder="How did it feel? Anything to remember next time?" aria-label="Workout notes" maxlength="1000">${esc(a.note)}</textarea></label>
     <div class="row end">${a.editingId
       ?'<button class="btn ghost" data-act="canceledit">Cancel</button><button class="btn primary" data-act="finish">Save changes</button>'
       :'<button class="btn ghost danger" data-act="discard">Discard</button><button class="btn primary" data-act="finish">Finish workout</button>'}</div>`;
 }
 
 function historyView(){
-  if (!state.history.length) return `<h2>History</h2><p class="note">No workouts yet. Finish one and it lands here.</p>`;
+  if (!state.history.length) return `<h2>History</h2><div class="card"><p>No workouts yet.</p><p class="note">Every workout you finish is saved here, newest first. Tap one to see its sets, edit it, or save it as a routine.</p><button class="btn primary" data-act="gotolog">Start a workout</button></div>`;
   return `<h2>History</h2>` + state.history.map(w=>entry(w,true)).join("");
 }
 
@@ -456,16 +494,16 @@ function progressView(){
     const best = isTime(name) ? (st.hold?`best ${st.hold}s`:"") : st.heavy ? `best ${fmtW(st.heavy.w)} ${unit()} × ${st.heavy.r}` : (st.reps?`best ${st.reps} reps`:"");
     return `<button class="pick" data-act="exinfo" data-name="${esc(name)}">${esc(name)} <small>· ${plural(t.n,"session")}, ${plural(t.sets,"set")}${best?" · "+best:""}</small></button>`;
   }).join("");
+  if (!state.history.length) return `<h2>Progress</h2><div class="card"><p>Nothing to show yet.</p><p class="note">Once you’ve finished a workout, this page shows how many workouts you’ve done, the total weight you’ve lifted and your best sets, over the last 1 to 12 weeks.</p><button class="btn primary" data-act="gotolog">Start a workout</button></div>`;
   return `<h2>Progress</h2>
   <div class="seg" role="group" aria-label="Time range">${RANGES.map(r=>`<button class="btn" data-act="range" data-n="${r}" aria-pressed="${r===n}">${r===1?"1 week":r+" weeks"}</button>`).join("")}</div>
   <h3>${label}</h3>
   <div class="stats"><div><b>${cur.count}</b><span>${cur.count===1?"workout":"workouts"}</span></div><div><b>${fmtVol(cur.vol)}</b><span>volume</span></div><div><b>${cur.sets}</b><span>working sets</span></div></div>
   <p class="note">${n>1?`About ${Math.round(cur.count/n*10)/10} workouts a week. `:""}${diff===null?`Not enough earlier data to compare with the ${n===1?"previous week":"previous "+n+" weeks"} yet.`:`Volume ${diff>=0?"up":"down"} ${Math.abs(diff)}% on the ${n===1?"previous week":"previous "+n+" weeks"}.`}</p>
-  <figure class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Training volume, ${label.toLowerCase()}">${bars}</svg>
+  <figure class="chart card"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Training volume, ${label.toLowerCase()}">${bars}</svg>
   <figcaption>Bars show total ${unit()} lifted (weight × reps, warm-ups excluded) ${n===1?"each day this week":"each week, starting Monday"}. The number above a bar is how many workouts you did.</figcaption></figure>
   <h2>Exercises</h2>
-  ${exRows || `<p class="note">No exercises logged in this period.</p>`}
-  ${exRows?'<p class="hint">Tap an exercise for its full history and personal records.</p>':""}`;
+  ${exRows ? `<div class="card list">${exRows}</div><p class="hint">Tap an exercise for its full history and personal records.</p>` : `<p class="note">No exercises logged in this period.</p>`}`;
 }
 
 function exInfo(name){
@@ -487,6 +525,7 @@ function render(){
   $("#tabs").hidden = !state.profile;
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current", b.dataset.tab===tab?"page":"false"));
   $("#greet").textContent = state.profile ? "Hi, "+state.profile.name : "";
+  document.body.classList.toggle("welcome", !state.profile);
   if (!state.profile){ view.innerHTML = profileForm(true); return; }
   view.innerHTML = ({workout:workoutView, history:historyView, progress:progressView, profile:()=>profileForm(false)})[tab]();
 }
@@ -546,6 +585,7 @@ view.addEventListener("click", e=>{
     }
     case "canceledit": state.active = null; tab = "history"; break;
     case "exinfo": exInfo(b.dataset.name); return;
+    case "gotolog": tab = "workout"; break;
     case "range": state.ui.range = +b.dataset.n; break;
     case "pick": openPicker(); return;
     case "rmex": a.exercises.splice(i,1); break;
